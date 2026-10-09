@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <assemblyIdentity version="1.0.0.0" name="MultiHost.app"/>
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
+    <security>
+      <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
+        <!-- CLI 保持调用者权限；GUI 在 App.OnStartup 中通过 runas 自动提升。 -->
+        <requestedExecutionLevel level="asInvoker" uiAccess="false" />
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+  <!-- DPI 感知通过 csproj 的 ApplicationHighDpiMode 配置（WinForms 目标要求，避免 WFO0003） -->
+</assembly>

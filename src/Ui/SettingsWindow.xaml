@@ -1,0 +1,64 @@
+<Window x:Class="MultiHost.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="设置" Width="640" Height="580" MinWidth="520" MinHeight="440"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="设置" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,16"/>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="0,0,8,0">
+                <TextBlock Text="实例工作区" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                <TextBox x:Name="WorkspaceBox" AutomationProperties.Name="实例工作区路径"/>
+                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                    <Button Content="浏览…" Padding="10,4" Click="BrowseWorkspaceBtn_Click"/>
+                    <Button Content="应用工作区" Padding="10,4" Margin="8,0,0,0" Click="ApplyWorkspaceBtn_Click"/>
+                </StackPanel>
+                <TextBlock Text="应用模板目录" FontWeight="SemiBold" Margin="0,20,0,5"/>
+                <TextBox x:Name="TemplateBox" AutomationProperties.Name="应用模板目录路径"/>
+                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                    <Button Content="浏览…" Padding="10,4" Click="BrowseTemplateBtn_Click"/>
+                    <Button Content="应用模板" Padding="10,4" Margin="8,0,0,0" Click="ApplyTemplateBtn_Click"/>
+                </StackPanel>
+                <TextBlock Text="更改目录前，请停止所有实例并等待当前操作完成。" Opacity="0.65" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                <TextBlock Text="内嵌窗口分辨率" FontWeight="SemiBold" Margin="0,20,0,5"/>
+                <ComboBox x:Name="EmbedResolutionCombo" Width="210" HorizontalAlignment="Left"
+                          AutomationProperties.Name="内嵌窗口分辨率预设" SelectionChanged="EmbedResolutionCombo_SelectionChanged">
+                    <ComboBoxItem Content="800 × 360（默认）"/>
+                    <ComboBoxItem Content="1120 × 540"/>
+                    <ComboBoxItem Content="自定义"/>
+                </ComboBox>
+                <WrapPanel Margin="0,8,0,0">
+                    <TextBlock Text="宽" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBox x:Name="EmbedWidthBox" Width="85" AutomationProperties.Name="内嵌窗口宽度" TextChanged="EmbedResolutionBox_TextChanged"/>
+                    <TextBlock Text="× 高" VerticalAlignment="Center" Margin="8,0"/>
+                    <TextBox x:Name="EmbedHeightBox" Width="85" AutomationProperties.Name="内嵌窗口高度" TextChanged="EmbedResolutionBox_TextChanged"/>
+                    <TextBlock Text="像素" VerticalAlignment="Center" Margin="8,0"/>
+                    <Button Content="应用" Padding="10,4" Click="ApplyEmbedResolutionBtn_Click"/>
+                </WrapPanel>
+                <TextBlock Text="对所有实例卡片立即生效；空间不足时自动换行，可滚动查看。" Opacity="0.65" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                <TextBlock Text="外观" FontWeight="SemiBold" Margin="0,20,0,5"/>
+                <ComboBox x:Name="ThemeCombo" SelectionChanged="ThemeCombo_SelectionChanged" Width="180" HorizontalAlignment="Left"
+                          AutomationProperties.Name="主题">
+                    <ComboBoxItem Content="跟随系统" Tag="System"/>
+                    <ComboBoxItem Content="浅色" Tag="Light"/>
+                    <ComboBoxItem Content="深色" Tag="Dark"/>
+                </ComboBox>
+                <TextBlock Text="批量启动间隔" FontWeight="SemiBold" Margin="0,20,0,5"/>
+                <StackPanel Orientation="Horizontal">
+                    <TextBox x:Name="BatchIntervalBox" Width="64" AutomationProperties.Name="批量启动间隔秒数"/>
+                    <TextBlock Text="秒（0–30，0 表示连续启动）" VerticalAlignment="Center" Margin="8,0"/>
+                    <Button Content="应用" Padding="10,4" Click="ApplyBatchIntervalBtn_Click"/>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+        <StackPanel Grid.Row="2" Margin="0,12,0,0">
+            <TextBlock x:Name="FeedbackText" TextWrapping="Wrap" Visibility="Collapsed" Margin="0,0,0,12"/>
+            <Button Content="关闭" IsCancel="True" HorizontalAlignment="Right" MinWidth="80" Padding="14,6"/>
+        </StackPanel>
+    </Grid>
+</Window>

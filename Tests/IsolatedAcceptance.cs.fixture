@@ -1,0 +1,410 @@
+using System.Diagnostics;
+using System.IO;
+using System.IO.Pipes;
+using System.Text.Json;
+using System.Windows;
+using Point = System.Windows.Point;
+
+namespace MultiHost;
+
+public static partial class Acceptance
+{
+    private static readonly List<object> Results = new();
+    private static int Checks;
+    private static int Failures;
+    private static MainWindow? CommandWindow;
+    private static bool InProcess => Environment.GetEnvironmentVariable("MULTIHOST_ACCEPTANCE_INPROCESS") == "1";
+    private static void Skip(string name)
+    {
+        Results.Add(new { Skipped = name });
+        Console.WriteLine("SKIP " + name);
+    }
+    private static void Check(string name, bool passed)
+    {
+        Results.Add(new { Check = name, Passed = passed });
+        Checks++;
+        if (!passed) Failures++;
+        Console.WriteLine((passed ? "PASS " : "FAIL ") + name);
+    }
+    private sealed class CallbackProgress(Action<string> callback) : IProgress<string>
+    {
+        public void Report(string value) => callback(value);
+    }
+    private static async Task<CommandReply> RunCliAsync(params string[] args)
+    {
+        if (InProcess)
+        {
+            var directReply = args.FirstOrDefault() == "autopilot"
+                ? await CliAcceptance.RunAsync(args.Skip(1).ToArray(), CommandWindow!.ExecuteCommandAsync)
+                : await CommandWindow!.ExecuteCommandAsync(args);
+            Results.Add(new { Command = args, Reply = directReply, Transport = "in-process command handler" });
+            return directReply;
+        }
+        var info = new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+        info.ArgumentList.Add("cli");
+        foreach (var argument in args) info.ArgumentList.Add(argument);
+        using var process = Process.Start(info)!;
+        var output = process.StandardOutput.ReadToEndAsync();
+        var error = process.StandardError.ReadToEndAsync();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        try { await process.WaitForExitAsync(timeout.Token); }
+        catch (OperationCanceledException) { process.Kill(entireProcessTree: true); throw new TimeoutException("CLI timed out: " + string.Join(' ', args)); }
+        var text = await output;
+        var reply = JsonSerializer.Deserialize<CommandReply>(text) ?? throw new InvalidOperationException("No CLI JSON: " + await error);
+        Check("CLI exit code matches reply: " + args[0], process.ExitCode == reply.Code);
+        Results.Add(new { Command = args, Reply = reply });
+        return reply;
+    }
+    private static JsonElement Data(CommandReply reply) => JsonSerializer.SerializeToElement(reply.Data);
+    private static async Task VerifyFixedResolutionAsync(MainWindow window)
+    {
+        var panel = (System.Windows.Controls.Panel)window.FindName("InstanceGrid");
+        Check("cards use a horizontal wrapping panel", panel is System.Windows.Controls.WrapPanel wrap && wrap.Orientation == System.Windows.Controls.Orientation.Horizontal);
+        var before = Data(await RunCliAsync("status"));
+        Check("global embedded resolution defaults to 800 by 360", before.TryGetProperty("EmbedWidth", out var defaultWidth) && defaultWidth.GetInt32() == 800 && before.TryGetProperty("EmbedHeight", out var defaultHeight) && defaultHeight.GetInt32() == 360);
+        var originalWidth = window.Width;
+        try
+        {
+            window.Width = 2000;
+            await window.Dispatcher.InvokeAsync(window.UpdateLayout, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            await Task.Delay(150);
+            var wide = Data(await RunCliAsync("check-embed", "app-one"));
+            Check("widening host preserves fixed 800 by 360 child", wide.GetProperty("Width").GetInt32() == 800 && wide.GetProperty("Height").GetInt32() == 360);
+            var cards = panel.Children.Cast<InstanceCard>().ToArray();
+            var firstWide = cards[0].TranslatePoint(new Point(), panel);
+            var secondWide = cards[1].TranslatePoint(new Point(), panel);
+            Check("wide viewport places cards side by side", Math.Abs(firstWide.Y - secondWide.Y) < 1 && secondWide.X > firstWide.X);
+            window.Width = window.MinWidth;
+            await window.Dispatcher.InvokeAsync(window.UpdateLayout, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            await Task.Delay(150);
+            var narrow = Data(await RunCliAsync("check-embed", "app-one"));
+            Check("narrowing host preserves fixed 800 by 360 child", narrow.GetProperty("Width").GetInt32() == 800 && narrow.GetProperty("Height").GetInt32() == 360);
+            Check("narrow viewport wraps cards to next row", cards[1].TranslatePoint(new Point(), panel).Y > cards[0].TranslatePoint(new Point(), panel).Y);
+            var preset = await RunCliAsync("resolution", "1120", "540");
+            Check("global 1120 by 540 preset is accepted", preset.Code == 0);
+            if (preset.Code == 0)
+            {
+                await window.Dispatcher.InvokeAsync(window.UpdateLayout, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                await Task.Delay(150);
+                var resized = Data(await RunCliAsync("check-embed", "app-one"));
+                Check("global preset resizes embedded child pixels", resized.GetProperty("Width").GetInt32() == 1120 && resized.GetProperty("Height").GetInt32() == 540);
+                using var settings = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppPaths.WorkspaceRoot, "shell_settings.json")));
+                Check("global resolution persists in workspace settings", settings.RootElement.GetProperty("EmbedWidth").GetInt32() == 1120 && settings.RootElement.GetProperty("EmbedHeight").GetInt32() == 540);
+                Check("custom embedded resolution is accepted", (await RunCliAsync("resolution", "960", "480")).Code == 0);
+                await window.Dispatcher.InvokeAsync(window.UpdateLayout, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                await Task.Delay(150);
+                var custom = Data(await RunCliAsync("check-embed", "app-two"));
+                Check("custom resolution applies to every running card", custom.GetProperty("Width").GetInt32() == 960 && custom.GetProperty("Height").GetInt32() == 480);
+                ThemeManager.Initialize();
+                await RunCliAsync("refresh");
+                var persisted = Data(await RunCliAsync("status"));
+                Check("custom resolution survives settings reload", persisted.GetProperty("EmbedWidth").GetInt32() == 960 && persisted.GetProperty("EmbedHeight").GetInt32() == 480);
+                Check("invalid embedded resolution is rejected", (await RunCliAsync("resolution", "0", "480")).Code != 0);
+                var afterInvalid = Data(await RunCliAsync("status"));
+                Check("invalid resolution preserves previous dimensions", afterInvalid.GetProperty("EmbedWidth").GetInt32() == 960 && afterInvalid.GetProperty("EmbedHeight").GetInt32() == 480);
+                await RunCliAsync("resolution", "800", "360");
+            }
+        }
+        finally
+        {
+            window.Width = originalWidth;
+            await window.Dispatcher.InvokeAsync(window.UpdateLayout, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            await Task.Delay(150);
+        }
+    }
+    private static async Task VerifyPipeResponsivenessAsync()
+    {
+        if (InProcess) { Skip("named-pipe concurrency requires external CLI mode"); return; }
+        using var silentClient = new NamedPipeClientStream(".", GuiPipe.Name, PipeDirection.InOut, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+        await silentClient.ConnectAsync(3000);
+        var pendingStatus = RunCliAsync("status");
+        var finished = await Task.WhenAny(pendingStatus, Task.Delay(2000));
+        Check("silent pipe client does not block another CLI status", finished == pendingStatus && pendingStatus.Result.Code == 0);
+        silentClient.Dispose();
+        await pendingStatus;
+    }
+    private static async Task VerifyBatchCancellationAsync(MainWindow window, string workspace)
+    {
+        var originalInterval = ThemeManager.BatchIntervalSeconds;
+        ThemeManager.SetBatchInterval(2);
+        foreach (var key in new[] { "app-one", "app-two" })
+            File.Delete(Path.Combine(workspace, key, "started.json"));
+        foreach (InstanceItem item in window.Instances) item.IsSelected = item.Config.FolderName is "app-one" or "app-two";
+        var batchStart = (System.Windows.Controls.Button)window.FindName("BatchStartBtn");
+        batchStart.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+        for (var i = 0; i < 30 && !File.Exists(Path.Combine(workspace, "app-one", "started.json")); i++) await Task.Delay(30);
+        Check("GUI batch starts first application", File.Exists(Path.Combine(workspace, "app-one", "started.json")));
+        Check("stopall accepts cancellation during batch interval", (await RunCliAsync("stopall")).Code == 0);
+        await Task.Delay(2400);
+        Check("stopall cancels queued batch application", !File.Exists(Path.Combine(workspace, "app-two", "started.json")));
+        var final = Data(await RunCliAsync("status"));
+        Check("no batch application runs after stopall", final.GetProperty("Instances").EnumerateArray().All(i => !i.GetProperty("Running").GetBoolean()));
+        await RunCliAsync("stopall");
+        ThemeManager.SetBatchInterval(30);
+        foreach (var key in new[] { "app-one", "app-two" }) File.Delete(Path.Combine(workspace, key, "started.json"));
+        batchStart.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+        for (var i = 0; i < 30 && !File.Exists(Path.Combine(workspace, "app-one", "started.json")); i++) await Task.Delay(30);
+        await RunCliAsync("stopall");
+        CommandReply workspaceReply = new(1);
+        for (var i = 0; i < 15 && workspaceReply.Code != 0; i++)
+        {
+            await Task.Delay(75);
+            workspaceReply = await RunCliAsync("workspace", workspace);
+        }
+        Check("stopall interrupts long batch delay before workspace switch", workspaceReply.Code == 0);
+        Check("long-delay queued application never starts", !File.Exists(Path.Combine(workspace, "app-two", "started.json")));
+        ThemeManager.SetBatchInterval(originalInterval);
+    }
+    private static async Task VerifyPendingStartCancellationAsync(string workspace)
+    {
+        await RunCliAsync("config", "app-one", "800", "360", "--no-window", "true");
+        var marker = Path.Combine(workspace, "app-one", "started.json");
+        File.Delete(marker);
+        var starting = RunCliAsync("start", "app-one");
+        for (var i = 0; i < 60 && !File.Exists(marker); i++) await Task.Delay(50);
+        Check("no-window fixture begins starting", File.Exists(marker));
+        var status = RunCliAsync("status");
+        Check("status responds during pending window capture", await Task.WhenAny(status, Task.Delay(2000)) == status && (await status).Code == 0);
+        var stopping = RunCliAsync("stopall");
+        Check("stopall responds during pending window capture", await Task.WhenAny(stopping, Task.Delay(2000)) == stopping && (await stopping).Code == 0);
+        Check("cancelled CLI start completes promptly", await Task.WhenAny(starting, Task.Delay(4000)) == starting);
+        var startResult = await starting;
+        await status;
+        await stopping;
+        Check("cancelled CLI start reports failure", startResult.Code != 0);
+        var final = Data(await RunCliAsync("status"));
+        Check("no-window fixture is stopped", final.GetProperty("Instances").EnumerateArray().All(i => !i.GetProperty("Running").GetBoolean()));
+        await RunCliAsync("config", "app-one", "800", "360", "", "true");
+    }
+    private static async Task VerifyGenericProcessesAsync(MainWindow window)
+    {
+        var fixtureTemplate = Environment.GetEnvironmentVariable("MULTIHOST_FIXTURE_APP") ?? throw new InvalidOperationException("Missing generated fixture application.");
+        var genericWorkspace = Path.Combine(Path.GetDirectoryName(AppPaths.WorkspaceRoot)!, "generic-workspace");
+        Check("workspace switches through CLI", (await RunCliAsync("workspace", genericWorkspace)).Code == 0);
+        Check("template switches through CLI", (await RunCliAsync("template", fixtureTemplate)).Code == 0);
+        var initial = Data(await RunCliAsync("status"));
+        Check("CLI reports selected workspace and template", initial.GetProperty("Workspace").GetString() == genericWorkspace && initial.GetProperty("Template").GetString() == fixtureTemplate);
+        Check("new workspace starts empty", initial.GetProperty("Instances").GetArrayLength() == 0);
+        foreach (var key in new[] { "app-one", "app-two" })
+            Check("CLI creates generic application " + key, (await RunCliAsync("create", "Application " + key, key, "FixtureApp.exe")).Code == 0);
+        Check("main window uses persistent card grid", window.FindName("InstanceGrid") is System.Windows.Controls.Panel);
+        Check("sidebar and list controls are removed", window.FindName("InstanceList") == null && window.FindName("LeftTabs") == null && window.FindName("SearchBox") == null);
+        var stoppedCards = Data(await RunCliAsync("status")).GetProperty("Instances").EnumerateArray().ToArray();
+        Check("every stopped instance has a persistent slot", stoppedCards.All(i => i.GetProperty("Window").ValueKind == JsonValueKind.Object));
+        var grid = (System.Windows.Controls.Panel)window.FindName("InstanceGrid");
+        var cards = grid.Children.Cast<InstanceCard>().ToArray();
+        var cardSlots = cards.ToDictionary(card => card.Item.Config.FolderName, card => card.Slot);
+        var cardOrder = cards.Select(card => card.Item.Config.FolderName).ToArray();
+        Check("card order matches configured instances", cardOrder.SequenceEqual(window.Instances.Select(item => item.Config.FolderName)));
+        Check("stopped cards are unbound placeholders", cards.All(card => card.Slot.LastHwnd == IntPtr.Zero && card.Slot.InstanceKey == card.Item.Config.FolderName));
+        Check("main toolbar contains global actions", new[] { "BatchStartBtn", "BatchStopBtn", "CreateBtn", "SettingsBtn" }.All(name => window.FindName(name) is System.Windows.Controls.Button));
+        Check("main window has no inline configuration controls", window.FindName("SaveCfgBtn") == null && window.FindName("ExtraArgsBox") == null && window.FindName("ThemeCombo") == null);
+        window.Instances.Single(item => item.Config.FolderName == "app-one").IsSelected = true;
+        await RunCliAsync("refresh");
+        Check("refresh retains card and slot objects", grid.Children.Cast<InstanceCard>().Select(card => card.Slot).SequenceEqual(cards.Select(card => card.Slot)) && grid.Children.Cast<InstanceCard>().SequenceEqual(cards));
+        Check("refresh retains card selection", window.Instances.Single(item => item.Config.FolderName == "app-one").IsSelected);
+        Check("optional size arguments can be enabled", (await RunCliAsync("config", "app-one", "800", "360", "", "true", "true")).Code == 0 && InstanceStore.Load().Single(c => c.FolderName == "app-one").IncludeSizeArguments);
+        Check("optional size arguments can be disabled", (await RunCliAsync("config", "app-one", "800", "360", "", "true", "false")).Code == 0 && !InstanceStore.Load().Single(c => c.FolderName == "app-one").IncludeSizeArguments);
+        Check("empty args config accepted", (await RunCliAsync("config", "app-one", "800", "360", "", "true")).Code == 0);
+        Check("quoted unicode args config accepted", (await RunCliAsync("config", "app-two", "900", "500", "--label \"中文 value\"", "true")).Code == 0);
+        Check("CLI missing instance gives useful error", (await RunCliAsync("start", "missing")) is { Code: 2, Error.Length: > 0 });
+        Check("CLI malformed numeric input gives useful error", (await RunCliAsync("config", "app-one", "not-number", "360", "", "true")) is { Code: 2, Error.Length: > 0 });
+        Check("autopilot requires explicit instances", (await RunCliAsync("autopilot")) is { Code: 2, Error.Length: > 0 });
+        await VerifyPipeResponsivenessAsync();
+        try
+        {
+            var started = await RunCliAsync("start", "app-one", "app-two");
+            Check("generic applications start and embed", started.Code == 0);
+            if (started.Code != 0) return;
+            var windows = Data(started);
+            Check("instances have distinct windows and processes", windows[0].GetProperty("Hwnd").GetInt64() != windows[1].GetProperty("Hwnd").GetInt64() && windows[0].GetProperty("Pid").GetInt32() != windows[1].GetProperty("Pid").GetInt32());
+            foreach (var item in windows.EnumerateArray())
+            {
+                Check("arbitrary original client size is captured", item.GetProperty("OriginalWidth").GetInt32() == 431 && item.GetProperty("OriginalHeight").GetInt32() == 277 && item.GetProperty("Embedded").GetBoolean());
+                Check("new embedded applications default to fill", item.GetProperty("FillMode").GetBoolean());
+                Check("embedded child fills host dimensions", item.GetProperty("Width").GetInt32() == item.GetProperty("HostWidth").GetInt32() && item.GetProperty("Height").GetInt32() == item.GetProperty("HostHeight").GetInt32());
+            }
+            await VerifyFixedResolutionAsync(window);
+            await VerifyEmbeddedInteractionAsync(window);
+            using (var first = JsonDocument.Parse(File.ReadAllText(Path.Combine(genericWorkspace, "app-one", "started.json"))))
+                Check("child receives no injected arguments", first.RootElement.GetProperty("Args").GetArrayLength() == 0);
+            using (var second = JsonDocument.Parse(File.ReadAllText(Path.Combine(genericWorkspace, "app-two", "started.json"))))
+                Check("child receives exact quoted unicode arguments", second.RootElement.GetProperty("Args").EnumerateArray().Select(a => a.GetString()).SequenceEqual(new[] { "--label", "中文 value" }));
+            Check("workspace switch while running is rejected", (await RunCliAsync("workspace", genericWorkspace + "-blocked")).Code != 0);
+            Check("template switch while running is rejected", (await RunCliAsync("template", fixtureTemplate)).Code != 0);
+            foreach (var key in new[] { "app-one", "app-two" })
+            {
+                var embedded = Data(await RunCliAsync("check-embed", key));
+                Check("exact embedded parent " + key, embedded.GetProperty("Parent").GetInt64() == embedded.GetProperty("ExpectedParent").GetInt64());
+                Check("fill command succeeds " + key, (await RunCliAsync("fit", key, "fill")).Code == 0);
+                var restored = Data(await RunCliAsync("fit", key, "original"));
+                Check("original dimensions restored " + key, restored.GetProperty("Width").GetInt32() == 431 && restored.GetProperty("Height").GetInt32() == 277);
+                var popup = Data(await RunCliAsync("popout", key));
+                Check("popout has exact parent " + key, popup.GetProperty("PoppedOut").GetBoolean() && popup.GetProperty("Parent").GetInt64() == popup.GetProperty("ExpectedParent").GetInt64());
+                Check("popout uses original client dimensions " + key, popup.GetProperty("Width").GetInt32() == 431 && popup.GetProperty("Height").GetInt32() == 277);
+                var reembedded = Data(await RunCliAsync("reembed", key));
+                Check("explicit reembed restores child " + key, reembedded.GetProperty("Embedded").GetBoolean() && !reembedded.GetProperty("PoppedOut").GetBoolean());
+                Check("reembed defaults to fill " + key, reembedded.GetProperty("FillMode").GetBoolean());
+                Check("reembedded child fills host dimensions " + key, reembedded.GetProperty("Width").GetInt32() == reembedded.GetProperty("HostWidth").GetInt32() && reembedded.GetProperty("Height").GetInt32() == reembedded.GetProperty("HostHeight").GetInt32());
+                await RunCliAsync("popout", key);
+                await RunCliAsync("close-popout", key);
+                var closed = await RunCliAsync("check-embed", key);
+                Check("closing popup returns child " + key, closed.Code == 0 && Data(closed).GetProperty("Embedded").GetBoolean());
+            }
+            Check("stopping one application succeeds", (await RunCliAsync("stop", "app-one")).Code == 0);
+            var remaining = Data(await RunCliAsync("status")).GetProperty("Instances").EnumerateArray().ToArray();
+            Check("stopping one leaves other running", !remaining.Single(i => i.GetProperty("Config").GetProperty("FolderName").GetString() == "app-one").GetProperty("Running").GetBoolean() && remaining.Single(i => i.GetProperty("Config").GetProperty("FolderName").GetString() == "app-two").GetProperty("Running").GetBoolean());
+            Check("stop retains placeholder slot", remaining.Single(i => i.GetProperty("Config").GetProperty("FolderName").GetString() == "app-one").GetProperty("Window").ValueKind == JsonValueKind.Object);
+            Check("stop retains card order and slot identity", grid.Children.Cast<InstanceCard>().Select(card => card.Item.Config.FolderName).SequenceEqual(cardOrder) && grid.Children.Cast<InstanceCard>().All(card => ReferenceEquals(card.Slot, cardSlots[card.Item.Config.FolderName])));
+            Check("stop retains checked selection", window.Instances.Single(item => item.Config.FolderName == "app-one").IsSelected);
+            foreach (var operation in new[] { new[] { "popout", "app-one" }, new[] { "fit", "app-one", "fill" }, new[] { "reembed", "app-one" } })
+                Check("CLI stopped application error: " + operation[0], await RunCliAsync(operation) is { Code: not 0, Error.Length: > 0 });
+            Check("GUI shows last command error", window.FindName("StatusText") is System.Windows.Controls.TextBlock statusText && statusText.IsVisible && !string.IsNullOrWhiteSpace(statusText.Text));
+        }
+        finally
+        {
+            Check("CLI stops all owned fixture sessions", (await RunCliAsync("stopall")).Code == 0);
+            var final = Data(await RunCliAsync("status"));
+            Check("all fixture sessions are stopped", final.GetProperty("Instances").EnumerateArray().All(i => !i.GetProperty("Running").GetBoolean()));
+            File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "final-status.json"), JsonSerializer.Serialize(final, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        Check("explicit autopilot completes successfully", (await RunCliAsync("autopilot", "app-one", "app-two")).Code == 0);
+        var afterAutopilot = Data(await RunCliAsync("status"));
+        Check("autopilot cleans up both owned applications", afterAutopilot.GetProperty("Instances").EnumerateArray().All(i => !i.GetProperty("Running").GetBoolean()));
+        await VerifyBatchCancellationAsync(window, genericWorkspace);
+        await VerifyPendingStartCancellationAsync(genericWorkspace);
+    }
+    [STAThread]
+    public static int Main()
+    {
+        var requestedWorkspace = Environment.GetEnvironmentVariable("MULTIHOST_WORKSPACE");
+        if (string.IsNullOrWhiteSpace(requestedWorkspace) || !Path.GetFullPath(AppPaths.WorkspaceRoot).Equals(Path.GetFullPath(requestedWorkspace), StringComparison.OrdinalIgnoreCase))
+        {
+            Console.Error.WriteLine("Acceptance requires MULTIHOST_WORKSPACE to resolve to the isolated fixture directory.");
+            return 2;
+        }
+        var launchArgs = Environment.GetCommandLineArgs().Skip(1).ToArray();
+        if (launchArgs.FirstOrDefault() == "cli") return CliRunner.RunAsync(launchArgs.Skip(1).ToArray()).GetAwaiter().GetResult();
+        var isolatedPipe = GuiPipe.Name;
+        Environment.SetEnvironmentVariable("MULTIHOST_WORKSPACE", requestedWorkspace + "-other");
+        var otherPipe = GuiPipe.Name;
+        Environment.SetEnvironmentVariable("MULTIHOST_WORKSPACE", requestedWorkspace);
+        if (isolatedPipe == otherPipe) { Console.Error.WriteLine("Acceptance requires workspace-isolated IPC."); return 2; }
+        var userSettings = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MultiHost", "settings.json");
+        var originalUserSettings = File.Exists(userSettings) ? File.ReadAllBytes(userSettings) : null;
+        Directory.CreateDirectory(AppPaths.WorkspaceRoot);
+        var settings = Path.Combine(AppPaths.WorkspaceRoot, "shell_settings.json");
+        File.WriteAllText(settings, "{\"Theme\":\"Dark\",\"BatchIntervalSeconds\":7,\"Future\":{\"value\":42}}");
+        var app = new System.Windows.Application();
+        ThemeManager.Initialize();
+        if (Environment.GetCommandLineArgs().Contains("--interactive"))
+        {
+            var slot = new EmbedSlot();
+            var host = new Window { Title = "MultiHost isolated input acceptance", Width = 900, Height = 600, Content = slot };
+            var child = new System.Windows.Forms.Form { Text = "Local harmless child", ClientSize = new System.Drawing.Size(640, 360) };
+            var input = new System.Windows.Forms.TextBox { Left = 20, Top = 20, Width = 400, AccessibleName = "Acceptance input" };
+            var button = new System.Windows.Forms.Button { Left = 20, Top = 70, Width = 400, Text = "Confirm local input" };
+            button.Click += (_, _) => button.Text = "Confirmed: " + input.Text;
+            child.Controls.Add(input);
+            child.Controls.Add(button);
+            host.Loaded += (_, _) => { child.Show(); slot.Attach("local-fixture", child.Handle); };
+            host.Closed += (_, _) => child.Dispose();
+            app.Run(host);
+            return 0;
+        }
+        var window = new MainWindow();
+        CommandWindow = window;
+        window.Loaded += async (_, _) =>
+        {
+            try
+            {
+                Check("generic application arguments default to empty", new InstanceConfig().BuildArguments() == "");
+                Check("first-run help is visible", window.FindName("EmptyInstancesHint") is System.Windows.Controls.TextBlock firstRun && firstRun.IsVisible && !string.IsNullOrWhiteSpace(firstRun.Text));
+                Directory.CreateDirectory(Path.Combine(AppPaths.TemplateDir, "bin"));
+                Directory.CreateDirectory(Path.Combine(AppPaths.TemplateDir, "empty", "child"));
+                File.WriteAllBytes(Path.Combine(AppPaths.TemplateDir, "bin", "fixture.exe"), [0, 1, 2, 255]);
+                File.WriteAllText(Path.Combine(AppPaths.TemplateDir, "中文 data.txt"), "fixture payload 中文");
+                File.WriteAllText(Path.Combine(AppPaths.TemplateDir, "instances.json"), "{\"template\":true}");
+                File.WriteAllText(Path.Combine(AppPaths.TemplateDir, "bin", "shell_settings.json"), "{\"nested\":true}");
+                using var manager = new ProcessManager();
+                await manager.CopyTemplateAsync("copy");
+                var target = Path.Combine(AppPaths.WorkspaceRoot, "copy");
+                Check("empty nested directories preserved", Directory.GetDirectories(AppPaths.TemplateDir, "*", SearchOption.AllDirectories).All(d => Directory.Exists(Path.Combine(target, Path.GetRelativePath(AppPaths.TemplateDir, d)))));
+                Check("all bytes including template json preserved", Directory.GetFiles(AppPaths.TemplateDir, "*", SearchOption.AllDirectories).All(f => File.Exists(Path.Combine(target, Path.GetRelativePath(AppPaths.TemplateDir, f))) && File.ReadAllBytes(f).SequenceEqual(File.ReadAllBytes(Path.Combine(target, Path.GetRelativePath(AppPaths.TemplateDir, f))))));
+                bool rejected = false;
+                try { await manager.CopyTemplateAsync("copy"); } catch (IOException) { rejected = true; }
+                Check("duplicate rejected and content unchanged", rejected && File.ReadAllBytes(Path.Combine(target, "bin", "fixture.exe")).SequenceEqual(new byte[] { 0, 1, 2, 255 }));
+                foreach (var folder in new[] { "../escape", "..\\escape", "C:\\escape", "template", "copy.", "CON", "NUL.txt" })
+                {
+                    rejected = false;
+                    try { await manager.CopyTemplateAsync(folder); } catch (ArgumentException) { rejected = true; } catch (IOException) { }
+                    Check("reject unsafe folder " + folder, rejected);
+                }
+                try { await manager.CopyTemplateAsync("failed", new CallbackProgress(_ => throw new IOException("injected copy failure"))); } catch (IOException) { }
+                Check("failed copy cleaned", !Directory.Exists(Path.Combine(AppPaths.WorkspaceRoot, "failed")) && Directory.GetDirectories(AppPaths.WorkspaceRoot, ".copy-*").Length == 0);
+                var cancelMethod = typeof(ProcessManager).GetMethod("CopyTemplateAsync", [typeof(string), typeof(IProgress<string>), typeof(CancellationToken)]);
+                Check("copy supports cancellation", cancelMethod != null);
+                if (cancelMethod != null)
+                {
+                    using var cancel = new CancellationTokenSource();
+                    bool cancelled = false;
+                    try { await (Task)cancelMethod.Invoke(manager, ["cancelled", new CallbackProgress(_ => cancel.Cancel()), cancel.Token])!; }
+                    catch (OperationCanceledException) { cancelled = true; }
+                    Check("cancel during copy cleans target", cancelled && !Directory.Exists(Path.Combine(AppPaths.WorkspaceRoot, "cancelled")) && Directory.GetDirectories(AppPaths.WorkspaceRoot, ".copy-*").Length == 0);
+                }
+                InstanceStore.Save([new InstanceConfig { FolderName = "copy", Remark = "existing", ExeFileName = "bin\\fixture.exe", Width = 777, Height = 333, ExtraArgs = "--keep", EmbedWindow = false }]);
+                var created = await window.ExecuteCommandAsync(["create", "验收备注", "fixture", "bin\\fixture.exe"]);
+                var previous = InstanceStore.Load().Single(c => c.FolderName == "copy");
+                Check("create preserves existing instance configuration", previous.Remark == "existing" && previous.Width == 777 && previous.Height == 333 && previous.ExtraArgs == "--keep" && !previous.EmbedWindow);
+                Check("nested exe create command succeeds", created.Code == 0);
+                Check("exe path escape rejected", (await window.ExecuteCommandAsync(["create", "escape", "escape-exe", "..\\fixture.exe"])).Code != 0 && !Directory.Exists(Path.Combine(AppPaths.WorkspaceRoot, "escape-exe")));
+                if (created.Code == 0)
+                {
+                    foreach (var operation in new[] { new[] { "popout", "fixture" }, new[] { "fit", "fixture", "fill" }, new[] { "reembed", "fixture" } })
+                    {
+                        var stopped = await window.ExecuteCommandAsync(operation);
+                        Check(operation[0] + " rejects a stopped instance", stopped.Code != 0 && !string.IsNullOrWhiteSpace(stopped.Error));
+                    }
+                    Check("visible status explains command errors", window.FindName("StatusText") is System.Windows.Controls.TextBlock statusText && statusText.IsVisible && !string.IsNullOrWhiteSpace(statusText.Text));
+                    Check("malformed dimensions are argument errors", (await window.ExecuteCommandAsync(["config", "fixture", "bad", "576", "", "true"])).Code == 2);
+                    window.Instances.Single(i => i.Config.FolderName == "fixture").IsSelected = true;
+                    await window.ExecuteCommandAsync(["refresh"]);
+                    Check("refresh preserves checked card selection", window.Instances.Single(i => i.Config.FolderName == "fixture").IsSelected);
+                    const string extra = "--local --label=\"中文 value\"";
+                    Check("config command", (await window.ExecuteCommandAsync(["config", "fixture", "1024", "576", extra, "false"])).Code == 0);
+                    await window.ExecuteCommandAsync(["refresh"]);
+                    var saved = InstanceStore.Scan(InstanceStore.Load()).Single(c => c.FolderName == "fixture");
+                    Check("config survives reload scan", saved.Remark == "验收备注" && saved.ExeFileName == "bin\\fixture.exe" && saved.Width == 1024 && saved.Height == 576 && saved.ExtraArgs == extra && !saved.EmbedWindow);
+                    Check("launch arguments preserved", saved.BuildArguments() == extra);
+                    Check("invalid dimensions rejected", (await window.ExecuteCommandAsync(["config", "fixture", "0", "576", "", "true"])).Code != 0 && saved.Width == 1024);
+                    Check("duplicate create rejected", (await window.ExecuteCommandAsync(["create", "overwrite", "fixture", "bin\\fixture.exe"])).Code != 0 && InstanceStore.Load().Single(c => c.FolderName == "fixture").Remark == "验收备注");
+                }
+                Check("template excluded from scan", InstanceStore.Scan(InstanceStore.Load()).All(c => c.FolderName != "template"));
+                var uiThread = Environment.CurrentManagedThreadId;
+                foreach (var mode in new[] { AppThemeMode.Light, AppThemeMode.Dark, AppThemeMode.System })
+                {
+                    Check("CLI theme " + mode, (await RunCliAsync("theme", mode.ToString().ToLowerInvariant())).Code == 0);
+                    Check("GUI thread and actual mode " + mode, window.Dispatcher.CheckAccess() && Environment.CurrentManagedThreadId == uiThread && app.ThemeMode.ToString() == mode.ToString());
+                    ThemeManager.Apply(mode == AppThemeMode.Light ? AppThemeMode.Dark : AppThemeMode.Light, save: false);
+                    ThemeManager.Initialize();
+                    Check("persisted theme " + mode, ThemeManager.Mode == mode && app.ThemeMode.ToString() == mode.ToString());
+                    using var json = JsonDocument.Parse(File.ReadAllText(settings));
+                    Check("preserve other settings " + mode, json.RootElement.GetProperty("BatchIntervalSeconds").GetInt32() == 7 && json.RootElement.TryGetProperty("Future", out var future) && future.GetProperty("value").GetInt32() == 42);
+                }
+                await VerifyGenericProcessesAsync(window);
+            }
+            catch (Exception ex) { Console.Error.WriteLine(ex); Results.Add(new { Failure = ex.ToString() }); Failures++; }
+            finally
+            {
+                await window.ExecuteCommandAsync(["stopall"]);
+                var currentUserSettings = File.Exists(userSettings) ? File.ReadAllBytes(userSettings) : null;
+                Check("real user settings remain unchanged", originalUserSettings == null ? currentUserSettings == null : currentUserSettings != null && originalUserSettings.SequenceEqual(currentUserSettings));
+                File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "acceptance.json"), JsonSerializer.Serialize(Results, new JsonSerializerOptions { WriteIndented = true }));
+                Console.WriteLine($"RESULT checks={Checks} failures={Failures}");
+                window.Close();
+            }
+        };
+        app.Run(window);
+        return Failures == 0 ? 0 : 1;
+    }
+}

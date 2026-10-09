@@ -1,0 +1,17 @@
+# Build outputs
+bin/
+obj/
+
+# Test artifacts
+TestResults/
+Tests/acceptance-report.json
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+# OS
+Thumbs.db
+Desktop.ini
