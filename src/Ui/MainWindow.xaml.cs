@@ -260,7 +260,9 @@ public partial class MainWindow : Window
     {
         if (_createCancellation != null) throw new InvalidOperationException("正在复制模板，请等待完成或取消");
         if (string.IsNullOrWhiteSpace(remark)) throw new ArgumentException("显示名称不能为空");
-        var cfg = new InstanceConfig { Remark = remark.Trim(), FolderName = folder.Trim(), ExeFileName = exe };
+        // 实例宽高默认跟随当前内嵌分辨率，确保支持尺寸参数的应用启动尺寸与内嵌显示一致（点击命中对齐）。
+        var cfg = new InstanceConfig { Remark = remark.Trim(), FolderName = folder.Trim(), ExeFileName = exe,
+            Width = ThemeManager.EmbedWidth, Height = ThemeManager.EmbedHeight };
         cfg.Validate();
         if (!InstanceStore.ScanTemplateExes().Contains(exe, StringComparer.OrdinalIgnoreCase)) throw new ArgumentException("请选择模板中的程序");
         var configs = InstanceStore.Scan(InstanceStore.Load());

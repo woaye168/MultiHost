@@ -21,6 +21,7 @@ public class EmbedSlot : Grid
     private List<uint> _inputThreads = [];
     private long _style;
     private (int Width, int Height) _original;
+    private bool _hasOriginal;
     private Win32Api.RECT _originalBounds;
     private bool _disposed;
     public string? InstanceKey { get; private set; }
@@ -72,9 +73,8 @@ public class EmbedSlot : Grid
         if (first)
         {
             if (_child != IntPtr.Zero) ResetContent();
-            if (!WindowNative.GetClientRect(hwnd, out var rect)) throw new InvalidOperationException("无法读取原始客户区");
-            if (!Win32Api.GetWindowRect(hwnd, out _originalBounds)) throw new InvalidOperationException("无法读取原始窗口位置");
-            _original = (rect.Right - rect.Left, rect.Bottom - rect.Top);
+            // 已有预捕获的原始尺寸（嵌入前调整客户区会改变当前尺寸，需用最初捕获值作弹出/还原基准）。
+            if (!_hasOriginal) CaptureOriginal(hwnd);
         }
         long style = WindowEmbedder.Embed(hwnd, _panel.Handle);
         MergeInputThreads(key, hwnd);
@@ -90,6 +90,14 @@ public class EmbedSlot : Grid
         // 部分应用（内嵌浏览器/引擎）会异步创建属于其他线程的子窗口，延迟补合并输入队列。
         ScheduleInputMerge(key, hwnd, 1500);
         ScheduleInputMerge(key, hwnd, 5000);
+    }
+    /// <summary>捕获应用原始客户区尺寸与窗口位置（弹出/还原基准），只记一次。</summary>
+    public void CaptureOriginal(IntPtr hwnd)
+    {
+        if (!WindowNative.GetClientRect(hwnd, out var rect)) throw new InvalidOperationException("无法读取原始客户区");
+        if (!Win32Api.GetWindowRect(hwnd, out _originalBounds)) throw new InvalidOperationException("无法读取原始窗口位置");
+        _original = (rect.Right - rect.Left, rect.Bottom - rect.Top);
+        _hasOriginal = true;
     }
     private void ScheduleInputMerge(string key, IntPtr hwnd, int delayMs)
     {
@@ -115,7 +123,7 @@ public class EmbedSlot : Grid
         _popup.Closing += OnPopupClosing;
         _popup.Show();
         WindowEmbedder.Embed(_child, _popupPanel.Handle);
-        Win32Api.MoveWindow(_child, 0, 0, _original.Width, _original.Height, true);
+        MoveChildAligningClient(0, 0, _original.Width, _original.Height);
         _popup.SizeToContent = SizeToContent.Manual;
         _popupHost.Width = double.NaN;
         _popupHost.Height = double.NaN;
@@ -123,7 +131,7 @@ public class EmbedSlot : Grid
         {
             if (_popupPanel is not { } panel || !Win32Api.IsWindow(_child)) return;
             var size = panel.ClientSize;
-            if (size.Width > 0 && size.Height > 0) Win32Api.MoveWindow(_child, 0, 0, size.Width, size.Height, true);
+            if (size.Width > 0 && size.Height > 0) MoveChildAligningClient(0, 0, size.Width, size.Height);
         };
         _host.Visibility = Visibility.Collapsed;
         _message.Visibility = Visibility.Visible;
@@ -170,6 +178,7 @@ public class EmbedSlot : Grid
             _child = IntPtr.Zero;
             _style = 0;
             _original = default;
+            _hasOriginal = false;
             _originalBounds = default;
             FillMode = true;
             try { ClosePopup(); }
@@ -199,8 +208,36 @@ public class EmbedSlot : Grid
         int width = FillMode ? size.Width : _original.Width;
         int height = FillMode ? size.Height : _original.Height;
         if (width <= 0 || height <= 0) return;
-        if (!Win32Api.MoveWindow(_child, Math.Max(0, (size.Width - width) / 2), Math.Max(0, (size.Height - height) / 2), width, height, true))
+        int x = Math.Max(0, (size.Width - width) / 2), y = Math.Max(0, (size.Height - height) / 2);
+        MoveChildAligningClient(x, y, width, height);
+    }
+    // 内嵌保留标题栏/边框，用 AdjustWindowRectEx 求出客户区相对窗口原点的偏移，把窗口整体上移/左移，
+    // 让客户区正好对齐宿主可视区（标题栏被裁在边界外）。这样游戏画面和点击命中都对齐。
+    private void MoveChildAligningClient(int x, int y, int width, int height)
+    {
+        long style = Win32Api.GetWindowLong(_child, Win32Api.GWL_STYLE);
+        uint exStyle = unchecked((uint)Win32Api.GetWindowLong(_child, Win32Api.GWL_EXSTYLE));
+        var rect = new Win32Api.RECT { Left = x, Top = y, Right = x + width, Bottom = y + height };
+        if (Win32Api.AdjustWindowRectEx(ref rect, unchecked((uint)style), false, exStyle))
+        {
+            x = rect.Left; y = rect.Top;
+            width = rect.Right - rect.Left; height = rect.Bottom - rect.Top;
+        }
+        if (Win32Api.MoveWindow(_child, x, y, width, height, true))
+            NotifyChildResized();
+        else
             LogService.Log("设置内嵌窗口尺寸失败");
+    }
+    // SDL 等引擎在外部程序直接 MoveWindow 时不一定触发其内部尺寸重算（auto_scale 仍按旧逻辑分辨率
+    // 做命中判定，导致点击错位）。补发完整的 sizing 消息序列，模拟用户拖动边框，强制引擎重算。
+    private void NotifyChildResized()
+    {
+        if (!Win32Api.IsWindow(_child)) return;
+        Win32Api.SendMessage(_child, Win32Api.WM_ENTERSIZEMOVE, IntPtr.Zero, IntPtr.Zero);
+        WindowNative.GetClientRect(_child, out var c);
+        int w = c.Right - c.Left, h = c.Bottom - c.Top;
+        Win32Api.SendMessage(_child, Win32Api.WM_SIZE, (IntPtr)Win32Api.SIZE_RESTORED, (IntPtr)(w | (h << 16)));
+        Win32Api.SendMessage(_child, Win32Api.WM_EXITSIZEMOVE, IntPtr.Zero, IntPtr.Zero);
     }
     public void ActivateChild()
     {
@@ -218,6 +255,7 @@ public class EmbedSlot : Grid
         else if (merged.Count > 1) LogService.Log($"{key} 已合并 {merged.Count} 个窗口线程的输入队列");
     }
     public bool InputAttached => _inputAttached;
+    public bool HasOriginal => _hasOriginal;
     public object Snapshot()
     {
         WindowNative.GetClientRect(_child, out var rect);

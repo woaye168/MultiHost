@@ -89,6 +89,22 @@ public partial class MainWindow
                     Count(2, 2, "diag <文件夹>");
                     var diagSlot = RequireWindow();
                     return new(0, EmbedDiagnostics.Capture(diagSlot, args[1]));
+                case "probe":
+                    Count(2, 2, "probe <文件夹>");
+                    var probeSlot = RequireWindow();
+                    return new(0, await EmbedDiagnostics.ProbeAsync(probeSlot));
+                case "probe-wmsize":
+                    Count(2, 2, "probe-wmsize <文件夹>");
+                    var wmSlot = RequireWindow();
+                    return new(0, await EmbedDiagnostics.ProbeWmSizeAsync(wmSlot));
+                case "probe-fluctuate":
+                    Count(2, 2, "probe-fluctuate <文件夹>");
+                    var flSlot = RequireWindow();
+                    return new(0, await EmbedDiagnostics.ProbeFluctuateAsync(flSlot));
+                case "probe-method":
+                    Count(3, 3, "probe-method <文件夹> <movewindow|setwindowpos|minmax>");
+                    var mSlot = RequireWindow();
+                    return new(0, await EmbedDiagnostics.ProbeResizeMethodAsync(mSlot, args[2]));
                 case "capture": case "check-embed":
                     Count(2, 2, "check-embed <文件夹>");
                     var slot = RequireWindow();

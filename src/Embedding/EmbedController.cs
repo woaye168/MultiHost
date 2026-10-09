@@ -57,6 +57,8 @@ public sealed class EmbedController
             if (!_manager.Owns(key, (int)pid)) throw new InvalidOperationException("窗口不再属于实例会话");
             if (_slots.Any(p => p.Key != key && p.Value.LastHwnd == capture.Hwnd))
                 throw new InvalidOperationException("窗口已被其他槽位占用");
+            // 记录应用原始尺寸作为弹出/还原基准。不再嵌入前预调整窗口——支持尺寸参数的应用
+            // 启动时已是正确尺寸，硬调会打乱其布局；嵌入后由 FitChild + sizing 序列对齐。
             slot.Attach(key, capture.Hwnd);
             LogService.Log($"已内嵌 {key} HWND={capture.Hwnd}，归属={capture.Strategy}，输入合并={slot.InputAttached}");
         }

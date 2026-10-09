@@ -67,8 +67,9 @@ public static class WindowEmbedder
         if (!Win32Api.IsWindow(child) || !Win32Api.IsWindow(parent)) throw new InvalidOperationException("窗口句柄失效");
         long original = Win32Api.GetWindowLong(child, Win32Api.GWL_STYLE);
         var oldParent = Win32Api.GetParent(child);
-        long style = (original & ~(Win32Api.WS_CAPTION | Win32Api.WS_SYSMENU | Win32Api.WS_THICKFRAME |
-            Win32Api.WS_MINIMIZEBOX | Win32Api.WS_MAXIMIZEBOX | Win32Api.WS_POPUP)) | Win32Api.WS_CHILD | Win32Api.WS_VISIBLE;
+        // 保留标题栏/边框样式，仅转为子窗口。客户区相对窗口原点的偏移由 EmbedSlot.FitChild
+        // 通过 AdjustWindowRectEx 补偿，使游戏画面客户区正好对齐宿主可视区。
+        long style = (original & ~Win32Api.WS_POPUP) | Win32Api.WS_CHILD | Win32Api.WS_VISIBLE;
         try
         {
             Win32Api.SetLastError(0);

@@ -12,6 +12,7 @@ public static class Win32Api
     #region 窗口样式常量
 
     public const int GWL_STYLE = -16;
+    public const int GWL_EXSTYLE = -20;
 
     public const long WS_POPUP = 0x80000000L;
     public const long WS_CHILD = 0x40000000L;
@@ -45,6 +46,14 @@ public static class Win32Api
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool AdjustWindowRectEx(ref RECT lpRect, uint dwStyle, bool bMenu, uint dwExStyle);
+
+    /// <summary>发送消息（同步等待处理）</summary>
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+    public const uint WM_SIZE = 0x0005;
+    public const uint SIZE_RESTORED = 0;
+    public const uint WM_ENTERSIZEMOVE = 0x0231;
+    public const uint WM_EXITSIZEMOVE = 0x0232;
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]

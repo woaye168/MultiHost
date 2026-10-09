@@ -1,0 +1,1134 @@
+﻿{
+    "Harness":  "Tests/IsolatedAcceptance.ps1",
+    "Scope":  "Generated WinForms applications in an isolated workspace; real user settings unchanged",
+    "CommandTransport":  "In-process handler; external CLI transport not tested",
+    "Checks":  135,
+    "Failures":  0,
+    "Skipped":  [
+                    {
+                        "Skipped":  "named-pipe concurrency requires external CLI mode"
+                    }
+                ],
+    "Assertions":  [
+                       {
+                           "Check":  "generic application arguments default to empty",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "first-run help is visible",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "empty nested directories preserved",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "all bytes including template json preserved",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "duplicate rejected and content unchanged",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "reject unsafe folder ../escape",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "reject unsafe folder ..\\escape",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "reject unsafe folder C:\\escape",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "reject unsafe folder template",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "reject unsafe folder copy.",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "reject unsafe folder CON",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "reject unsafe folder NUL.txt",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "failed copy cleaned",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "copy supports cancellation",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "cancel during copy cleans target",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "create preserves existing instance configuration",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "nested exe create command succeeds",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "exe path escape rejected",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "popout rejects a stopped instance",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "fit rejects a stopped instance",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "reembed rejects a stopped instance",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "visible status explains command errors",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "malformed dimensions are argument errors",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "refresh preserves checked card selection",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "config command",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "config survives reload scan",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "launch arguments preserved",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "invalid dimensions rejected",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "duplicate create rejected",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "template excluded from scan",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "CLI theme Light",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "GUI thread and actual mode Light",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "persisted theme Light",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "preserve other settings Light",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "CLI theme Dark",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "GUI thread and actual mode Dark",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "persisted theme Dark",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "preserve other settings Dark",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "CLI theme System",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "GUI thread and actual mode System",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "persisted theme System",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "preserve other settings System",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "workspace switches through CLI",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "template switches through CLI",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "CLI reports selected workspace and template",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "new workspace starts empty",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "CLI creates generic application app-one",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "CLI creates generic application app-two",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "main window uses persistent card grid",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "sidebar and list controls are removed",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "every stopped instance has a persistent slot",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "card order matches configured instances",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "stopped cards are unbound placeholders",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "main toolbar contains global actions",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "main window has no inline configuration controls",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "refresh retains card and slot objects",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "refresh retains card selection",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "optional size arguments can be enabled",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "optional size arguments can be disabled",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "empty args config accepted",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "quoted unicode args config accepted",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "CLI missing instance gives useful error",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "CLI malformed numeric input gives useful error",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "autopilot requires explicit instances",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "generic applications start and embed",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "instances have distinct windows and processes",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "arbitrary original client size is captured",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "new embedded applications default to fill",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "embedded child fills host dimensions",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "arbitrary original client size is captured",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "new embedded applications default to fill",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "embedded child fills host dimensions",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "cards use a horizontal wrapping panel",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "global embedded resolution defaults to 800 by 360",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "widening host preserves fixed 800 by 360 child",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "wide viewport places cards side by side",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "narrowing host preserves fixed 800 by 360 child",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "narrow viewport wraps cards to next row",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "global 1120 by 540 preset is accepted",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "global preset resizes embedded child pixels",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "global resolution persists in workspace settings",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "custom embedded resolution is accepted",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "custom resolution applies to every running card",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "custom resolution survives settings reload",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "invalid embedded resolution is rejected",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "invalid resolution preserves previous dimensions",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "embedded child responds to real mouse click",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "child receives no injected arguments",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "child receives exact quoted unicode arguments",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "workspace switch while running is rejected",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "template switch while running is rejected",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "exact embedded parent app-one",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "fill command succeeds app-one",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "original dimensions restored app-one",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "popout has exact parent app-one",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "popout uses original client dimensions app-one",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "explicit reembed restores child app-one",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "reembed defaults to fill app-one",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "reembedded child fills host dimensions app-one",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "closing popup returns child app-one",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "exact embedded parent app-two",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "fill command succeeds app-two",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "original dimensions restored app-two",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "popout has exact parent app-two",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "popout uses original client dimensions app-two",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "explicit reembed restores child app-two",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "reembed defaults to fill app-two",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "reembedded child fills host dimensions app-two",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "closing popup returns child app-two",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "stopping one application succeeds",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "stopping one leaves other running",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "stop retains placeholder slot",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "stop retains card order and slot identity",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "stop retains checked selection",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "CLI stopped application error: popout",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "CLI stopped application error: fit",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "CLI stopped application error: reembed",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "GUI shows last command error",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "CLI stops all owned fixture sessions",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "all fixture sessions are stopped",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "explicit autopilot completes successfully",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "autopilot cleans up both owned applications",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "GUI batch starts first application",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "stopall accepts cancellation during batch interval",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "stopall cancels queued batch application",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "no batch application runs after stopall",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "stopall interrupts long batch delay before workspace switch",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "long-delay queued application never starts",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "no-window fixture begins starting",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "status responds during pending window capture",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "stopall responds during pending window capture",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "cancelled CLI start completes promptly",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "cancelled CLI start reports failure",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "no-window fixture is stopped",
+                           "Passed":  true
+                       },
+                       {
+                           "Check":  "real user settings remain unchanged",
+                           "Passed":  true
+                       }
+                   ],
+    "Commands":  [
+                     {
+                         "Command":  [
+                                         "theme",
+                                         "light"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "theme",
+                                         "dark"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "theme",
+                                         "system"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "workspace",
+                                         "\u003ctemporary fixture\u003e\\generic-workspace"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "template",
+                                         "\u003ctemporary fixture\u003e\\template-source"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "status"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "create",
+                                         "Application app-one",
+                                         "app-one",
+                                         "FixtureApp.exe"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "create",
+                                         "Application app-two",
+                                         "app-two",
+                                         "FixtureApp.exe"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "status"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "refresh"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "config",
+                                         "app-one",
+                                         "800",
+                                         "360",
+                                         "",
+                                         "true",
+                                         "true"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "config",
+                                         "app-one",
+                                         "800",
+                                         "360",
+                                         "",
+                                         "true",
+                                         "false"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "config",
+                                         "app-one",
+                                         "800",
+                                         "360",
+                                         "",
+                                         "true"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "config",
+                                         "app-two",
+                                         "900",
+                                         "500",
+                                         "--label \"中文 value\"",
+                                         "true"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "start",
+                                         "missing"
+                                     ],
+                         "ExitCode":  2,
+                         "Error":  "实例不存在: missing"
+                     },
+                     {
+                         "Command":  [
+                                         "config",
+                                         "app-one",
+                                         "not-number",
+                                         "360",
+                                         "",
+                                         "true"
+                                     ],
+                         "ExitCode":  2,
+                         "Error":  "宽高必须是整数，内嵌选项必须是 true 或 false"
+                     },
+                     {
+                         "Command":  [
+                                         "autopilot"
+                                     ],
+                         "ExitCode":  2,
+                         "Error":  "用法: autopilot \u003c实例文件夹1\u003e \u003c实例文件夹2\u003e；必须明确指定两个不同且已停止的实例"
+                     },
+                     {
+                         "Command":  [
+                                         "start",
+                                         "app-one",
+                                         "app-two"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "status"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "check-embed",
+                                         "app-one"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "check-embed",
+                                         "app-one"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "resolution",
+                                         "1120",
+                                         "540"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "check-embed",
+                                         "app-one"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "resolution",
+                                         "960",
+                                         "480"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "check-embed",
+                                         "app-two"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "refresh"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "status"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "resolution",
+                                         "0",
+                                         "480"
+                                     ],
+                         "ExitCode":  2,
+                         "Error":  "内嵌窗口宽度必须在 1 到 16384 像素之间 (Parameter \u0027width\u0027)"
+                     },
+                     {
+                         "Command":  [
+                                         "status"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "resolution",
+                                         "800",
+                                         "360"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "check-embed",
+                                         "app-one"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "workspace",
+                                         "\u003ctemporary fixture\u003e\\generic-workspace-blocked"
+                                     ],
+                         "ExitCode":  1,
+                         "Error":  "请先停止所有实例，并等待当前操作完成，再更改工作区或模板"
+                     },
+                     {
+                         "Command":  [
+                                         "template",
+                                         "\u003ctemporary fixture\u003e\\template-source"
+                                     ],
+                         "ExitCode":  1,
+                         "Error":  "请先停止所有实例，并等待当前操作完成，再更改工作区或模板"
+                     },
+                     {
+                         "Command":  [
+                                         "check-embed",
+                                         "app-one"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "fit",
+                                         "app-one",
+                                         "fill"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "fit",
+                                         "app-one",
+                                         "original"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "popout",
+                                         "app-one"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "reembed",
+                                         "app-one"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "popout",
+                                         "app-one"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "close-popout",
+                                         "app-one"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "check-embed",
+                                         "app-one"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "check-embed",
+                                         "app-two"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "fit",
+                                         "app-two",
+                                         "fill"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "fit",
+                                         "app-two",
+                                         "original"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "popout",
+                                         "app-two"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "reembed",
+                                         "app-two"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "popout",
+                                         "app-two"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "close-popout",
+                                         "app-two"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "check-embed",
+                                         "app-two"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "stop",
+                                         "app-one"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "status"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "popout",
+                                         "app-one"
+                                     ],
+                         "ExitCode":  1,
+                         "Error":  "实例未运行，请先启动：app-one"
+                     },
+                     {
+                         "Command":  [
+                                         "fit",
+                                         "app-one",
+                                         "fill"
+                                     ],
+                         "ExitCode":  1,
+                         "Error":  "实例未运行，请先启动：app-one"
+                     },
+                     {
+                         "Command":  [
+                                         "reembed",
+                                         "app-one"
+                                     ],
+                         "ExitCode":  1,
+                         "Error":  "实例未运行，请先启动：app-one"
+                     },
+                     {
+                         "Command":  [
+                                         "stopall"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "status"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "autopilot",
+                                         "app-one",
+                                         "app-two"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "status"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "stopall"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "status"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "stopall"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "stopall"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "workspace",
+                                         "\u003ctemporary fixture\u003e\\generic-workspace"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "config",
+                                         "app-one",
+                                         "800",
+                                         "360",
+                                         "--no-window",
+                                         "true"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "status"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "stopall"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "start",
+                                         "app-one"
+                                     ],
+                         "ExitCode":  1,
+                         "Error":  "应用已退出或尚未内嵌。请检查启动参数；无窗口应用可关闭启动后内嵌。"
+                     },
+                     {
+                         "Command":  [
+                                         "status"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     },
+                     {
+                         "Command":  [
+                                         "config",
+                                         "app-one",
+                                         "800",
+                                         "360",
+                                         "",
+                                         "true"
+                                     ],
+                         "ExitCode":  0,
+                         "Error":  null
+                     }
+                 ]
+}

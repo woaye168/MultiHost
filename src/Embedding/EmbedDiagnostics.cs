@@ -67,4 +67,90 @@ public static class EmbedDiagnostics
     private static extern bool EnumChildWindows(IntPtr parent, Win32Api.EnumWindowsProc callback, IntPtr lParam);
     [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
     private static extern int GetClassName(IntPtr hwnd, System.Text.StringBuilder text, int capacity);
+
+    /// <summary>对内嵌窗口做尺寸探测：在管理员 GUI 线程里改尺寸并读回客户区，定位游戏何时响应 WM_SIZE。</summary>
+    public static async Task<object> ProbeAsync(EmbedSlot slot)
+    {
+        var child = slot.LastHwnd;
+        var steps = new List<object>();
+        void Dump(string tag)
+        {
+            WindowNative.GetClientRect(child, out var c);
+            Win32Api.GetWindowRect(child, out var w);
+            steps.Add(new { Step = tag, Client = $"{c.Right - c.Left}x{c.Bottom - c.Top}", Window = $"{w.Right - w.Left}x{w.Bottom - w.Top}", Pos = $"{w.Left},{w.Top}" });
+        }
+        Dump("内嵌当前");
+        // 直接 MoveWindow 改客户区到内嵌分辨率（不经 FitChild 的 AdjustWindowRectEx）
+        Win32Api.MoveWindow(child, 0, 0, 800, 360, true);
+        await Task.Delay(500);
+        Dump("MoveWindow(800x360裸)");
+        // 用 SetWindowPos 改
+        Win32Api.SetWindowPos(child, IntPtr.Zero, 0, 0, 900, 500, Win32Api.SWP_NOZORDER);
+        await Task.Delay(500);
+        Dump("SetWindowPos(900x500)");
+        // 还原 fill
+        slot.SetFill(true);
+        await Task.Delay(300);
+        Dump("SetFill还原");
+        return new { Steps = steps, InputAttached = slot.InputAttached, FillMode = slot.FillMode };
+    }
+
+    /// <summary>连续读取内嵌窗口客户区，检测是否抖动（尺寸来回变化）。</summary>
+    public static async Task<object> ProbeFluctuateAsync(EmbedSlot slot)
+    {
+        var child = slot.LastHwnd;
+        var samples = new List<string>();
+        for (int i = 0; i < 10; i++)
+        {
+            WindowNative.GetClientRect(child, out var c);
+            Win32Api.GetWindowRect(child, out var w);
+            samples.Add($"{c.Right - c.Left}x{c.Bottom - c.Top}/win{w.Right - w.Left}x{w.Bottom - w.Top}");
+            await Task.Delay(150);
+        }
+        return new { Samples = samples, Distinct = samples.Distinct().Count(), Note = "Distinct>1 说明窗口尺寸在抖动" };
+    }
+
+    // 三种尺寸修改方式对照：看哪种能触发游戏渲染器重建（日志出现 Resize Display）。
+    public static async Task<object> ProbeResizeMethodAsync(EmbedSlot slot, string method)
+    {
+        var child = slot.LastHwnd;
+        WindowNative.GetClientRect(child, out var c);
+        int w = c.Right - c.Left, h = c.Bottom - c.Top;
+        int nw = w == 800 ? 820 : 800, nh = h == 360 ? 380 : 360; // 换个尺寸触发变化
+        string note = method switch
+        {
+            "movewindow" => DoMove(child, nw, nh),
+            "setwindowpos" => DoSetPos(child, nw, nh),
+            "minmax" => await DoMinMax(child),
+            _ => "unknown"
+        };
+        await Task.Delay(600);
+        WindowNative.GetClientRect(child, out var c2);
+        return new { Method = method, Before = $"{w}x{h}", After = $"{c2.Right - c2.Left}x{c2.Bottom - c2.Top}", Note = note + "；看日志有无 Resize Display" };
+    }
+    private static string DoMove(IntPtr h, int w, int ht)
+        => Win32Api.MoveWindow(h, 0, 0, w, ht, true) ? "MoveWindow已发" : "MoveWindow失败";
+    private static string DoSetPos(IntPtr h, int w, int ht)
+        => Win32Api.SetWindowPos(h, IntPtr.Zero, 0, 0, w, ht, Win32Api.SWP_NOZORDER | Win32Api.SWP_FRAMECHANGED) ? "SetWindowPos+FRAMECHANGED已发" : "SetWindowPos失败";
+    private static async Task<string> DoMinMax(IntPtr h)
+    {
+        Win32Api.SendMessage(h, 0x0112 /*WM_SYSCOMMAND*/, (IntPtr)0xF020 /*SC_MINIMIZE*/, IntPtr.Zero);
+        await Task.Delay(400);
+        Win32Api.SendMessage(h, 0x0112, (IntPtr)0xF120 /*SC_RESTORE*/, IntPtr.Zero);
+        return "最小化→还原已发";
+    }
+
+    /// <summary>对内嵌窗口显式发 WM_SIZE，验证游戏是否据此重算逻辑分辨率。</summary>
+    public static async Task<object> ProbeWmSizeAsync(EmbedSlot slot)
+    {
+        var child = slot.LastHwnd;
+        WindowNative.GetClientRect(child, out var c);
+        int w = c.Right - c.Left, h = c.Bottom - c.Top;
+        var before = $"{w}x{h}";
+        // 显式发 WM_SIZE(SIZE_RESTORED, 客户区宽高)
+        Win32Api.SendMessage(child, Win32Api.WM_SIZE, (IntPtr)Win32Api.SIZE_RESTORED, (IntPtr)(w | (h << 16)));
+        await Task.Delay(800);
+        WindowNative.GetClientRect(child, out var c2);
+        return new { SentClient = before, AfterClient = $"{c2.Right - c2.Left}x{c2.Bottom - c2.Top}", Note = "看游戏日志是否刷出对应分辨率" };
+    }
 }
