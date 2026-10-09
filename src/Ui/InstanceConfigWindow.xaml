@@ -1,7 +1,7 @@
 <Window x:Class="MultiHost.InstanceConfigWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="实例配置" Width="560" Height="620" MinWidth="460" MinHeight="460"
+        Title="实例配置" Width="560" Height="480" MinWidth="460" MinHeight="360"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <Grid Margin="20">
         <Grid.RowDefinitions>
@@ -22,18 +22,7 @@
                 <TextBlock Text="启动参数" Margin="0,14,0,5"/>
                 <TextBox x:Name="ExtraArgsBox" MinHeight="70" AcceptsReturn="True" TextWrapping="Wrap"
                          VerticalScrollBarVisibility="Auto" AutomationProperties.Name="启动参数"/>
-                <CheckBox x:Name="EmbedCheck" Content="启动后内嵌窗口" Margin="0,16,0,12"/>
-                <TextBlock Text="启动尺寸参数" FontWeight="SemiBold"/>
-                <TextBlock Text="仅在下方勾选后传入程序；内嵌时随卡片调整，弹出时恢复原窗口尺寸。" Opacity="0.65" TextWrapping="Wrap" Margin="0,4,0,8"/>
-                <WrapPanel VerticalAlignment="Center">
-                    <TextBlock Text="宽" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                    <TextBox x:Name="WidthBox" Width="90" AutomationProperties.Name="启动窗口宽度参数"/>
-                    <TextBlock Text="× 高" VerticalAlignment="Center" Margin="8,0"/>
-                    <TextBox x:Name="HeightBox" Width="90" AutomationProperties.Name="启动窗口高度参数"/>
-                </WrapPanel>
-                <CheckBox x:Name="SizeArgsCheck" Margin="0,12,0,0">
-                    <TextBlock Text="附加 -width / -height 参数（仅支持此参数的应用）" TextWrapping="Wrap"/>
-                </CheckBox>
+                <TextBlock Text="如需指定窗口尺寸，可直接在启动参数中填写，例如 -width 800 -height 360。" Opacity="0.65" TextWrapping="Wrap" Margin="0,6,0,0"/>
                 <TextBlock Text="保存后将在下次启动时生效。" Opacity="0.65" Margin="0,16,0,8"/>
             </StackPanel>
         </ScrollViewer>

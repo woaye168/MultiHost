@@ -46,19 +46,10 @@ public class InstanceConfig
     /// <summary>可执行文件名（相对实例目录，如 bin\application.exe）</summary>
     public string ExeFileName { get; set; } = "";
 
-    /// <summary>窗口宽度 → -width</summary>
-    public int Width { get; set; } = 800;
-
-    /// <summary>窗口高度 → -height</summary>
-    public int Height { get; set; } = 360;
-
-    /// <summary>额外自定义参数（原样追加到命令行）</summary>
+    /// <summary>额外自定义参数（原样追加到命令行；如需指定窗口尺寸可自行写 -width/-height 等参数）</summary>
     public string ExtraArgs { get; set; } = "";
 
-    /// <summary>仅在程序支持 -width/-height 参数时启用。</summary>
-    public bool IncludeSizeArguments { get; set; }
-
-    /// <summary>启动后是否默认内嵌到集成容器（可切换回独立窗口）</summary>
+    /// <summary>启动后是否默认内嵌到集成容器（默认内嵌，可切换回独立窗口）</summary>
     public bool EmbedWindow { get; set; } = true;
 
     /// <summary>上次退出是否异常（运行中被外部杀掉/崩溃）</summary>
@@ -72,10 +63,8 @@ public class InstanceConfig
     [JsonIgnore]
     public string ExeFullPath => Path.Combine(FolderFullPath, ExeFileName);
 
-    /// <summary>拼装完整启动参数</summary>
-    public string BuildArguments() => IncludeSizeArguments
-        ? $"-width={Width} -height={Height} {ExtraArgs}".TrimEnd()
-        : ExtraArgs ?? "";
+    /// <summary>拼装完整启动参数（原样使用用户填写的启动参数）</summary>
+    public string BuildArguments() => ExtraArgs ?? "";
 
     public void Validate()
     {
@@ -91,8 +80,6 @@ public class InstanceConfig
                 System.Text.RegularExpressions.Regex.IsMatch(segment.Split('.')[0], @"^(CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])$", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
                 throw new ArgumentException("程序路径不能包含上级目录、空路径或无效文件名");
         }
-        if (Width is < 1 or > 16384 || Height is < 1 or > 16384)
-            throw new ArgumentException("窗口宽度和高度必须在 1 到 16384 之间");
         if (ExtraArgs?.Contains('\0') == true)
             throw new ArgumentException("启动参数不能包含空字符");
     }

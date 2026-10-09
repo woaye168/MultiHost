@@ -137,16 +137,8 @@ public partial class MainWindow
                     }
                     return new(0, new { ThemeManager.EmbedWidth, ThemeManager.EmbedHeight });
                 case "config":
-                    Count(6, 9, "config <文件夹> <宽> <高> <启动参数> <内嵌true|false> [附加尺寸true|false] [相对exe路径] [名称]");
-                    if (!int.TryParse(args[2], out var width) || !int.TryParse(args[3], out var height) || !bool.TryParse(args[5], out var shouldEmbed))
-                        throw new ArgumentException("宽高必须是整数，内嵌选项必须是 true 或 false");
-                    bool? includeSize = null;
-                    if (args.Length > 6)
-                    {
-                        if (!bool.TryParse(args[6], out var include)) throw new ArgumentException("附加尺寸选项必须是 true 或 false");
-                        includeSize = include;
-                    }
-                    SaveConfig(Require(), width, height, args[4], shouldEmbed, includeSize, args.Length > 7 ? args[7] : null, args.Length > 8 ? args[8] : null);
+                    Count(3, 5, "config <文件夹> <启动参数> [相对exe路径] [名称]");
+                    SaveConfig(Require(), args[2], args.Length > 3 ? args[3] : null, args.Length > 4 ? args[4] : null);
                     return new(0, Require());
                 case "create":
                     Count(3, 4, "create <名称> <文件夹> [相对exe路径]");

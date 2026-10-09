@@ -8,14 +8,15 @@
             <Border Padding="10,8" BorderThickness="0,0,0,1"
                     BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}">
                 <StackPanel>
-                    <DockPanel>
+                    <DockPanel VerticalAlignment="Center">
                         <CheckBox x:Name="SelectedCheck" IsChecked="{Binding IsSelected, Mode=TwoWay}" VerticalAlignment="Center"
                                   Margin="0,0,10,0" AutomationProperties.Name="勾选实例"/>
-                        <TextBlock Text="{Binding Config.Remark}" FontWeight="SemiBold" FontSize="14"
+                        <TextBlock Text="{Binding Config.Remark}" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center"
                                    TextTrimming="CharacterEllipsis" ToolTip="{Binding Config.FolderName}"/>
+                        <TextBlock Text="{Binding StatusText}" FontSize="11" Opacity="0.75" VerticalAlignment="Center"
+                                   HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusText}"/>
                     </DockPanel>
-                    <TextBlock Text="{Binding StatusText}" FontSize="11" Opacity="0.75" Margin="0,3,0,7"
-                               TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusText}"/>
+                    <Border Height="7"/>
                     <WrapPanel>
                         <Button x:Name="StartBtn" Content="启动" Padding="10,3" Margin="0,0,5,0" Click="StartBtn_Click"/>
                         <Button x:Name="StopBtn" Content="停止" Padding="10,3" Margin="0,0,5,0" Click="StopBtn_Click"/>

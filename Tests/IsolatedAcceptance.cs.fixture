@@ -157,7 +157,7 @@ public static partial class Acceptance
     }
     private static async Task VerifyPendingStartCancellationAsync(string workspace)
     {
-        await RunCliAsync("config", "app-one", "800", "360", "--no-window", "true");
+        await RunCliAsync("config", "app-one", "--no-window");
         var marker = Path.Combine(workspace, "app-one", "started.json");
         File.Delete(marker);
         var starting = RunCliAsync("start", "app-one");
@@ -174,7 +174,7 @@ public static partial class Acceptance
         Check("cancelled CLI start reports failure", startResult.Code != 0);
         var final = Data(await RunCliAsync("status"));
         Check("no-window fixture is stopped", final.GetProperty("Instances").EnumerateArray().All(i => !i.GetProperty("Running").GetBoolean()));
-        await RunCliAsync("config", "app-one", "800", "360", "", "true");
+        await RunCliAsync("config", "app-one", "");
     }
     private static async Task VerifyGenericProcessesAsync(MainWindow window)
     {
@@ -203,12 +203,10 @@ public static partial class Acceptance
         await RunCliAsync("refresh");
         Check("refresh retains card and slot objects", grid.Children.Cast<InstanceCard>().Select(card => card.Slot).SequenceEqual(cards.Select(card => card.Slot)) && grid.Children.Cast<InstanceCard>().SequenceEqual(cards));
         Check("refresh retains card selection", window.Instances.Single(item => item.Config.FolderName == "app-one").IsSelected);
-        Check("optional size arguments can be enabled", (await RunCliAsync("config", "app-one", "800", "360", "", "true", "true")).Code == 0 && InstanceStore.Load().Single(c => c.FolderName == "app-one").IncludeSizeArguments);
-        Check("optional size arguments can be disabled", (await RunCliAsync("config", "app-one", "800", "360", "", "true", "false")).Code == 0 && !InstanceStore.Load().Single(c => c.FolderName == "app-one").IncludeSizeArguments);
-        Check("empty args config accepted", (await RunCliAsync("config", "app-one", "800", "360", "", "true")).Code == 0);
-        Check("quoted unicode args config accepted", (await RunCliAsync("config", "app-two", "900", "500", "--label \"中文 value\"", "true")).Code == 0);
+        Check("empty args config accepted", (await RunCliAsync("config", "app-one", "")).Code == 0);
+        Check("quoted unicode args config accepted", (await RunCliAsync("config", "app-two", "--label \"中文 value\"")).Code == 0);
         Check("CLI missing instance gives useful error", (await RunCliAsync("start", "missing")) is { Code: 2, Error.Length: > 0 });
-        Check("CLI malformed numeric input gives useful error", (await RunCliAsync("config", "app-one", "not-number", "360", "", "true")) is { Code: 2, Error.Length: > 0 });
+        Check("CLI excess config arguments give useful error", (await RunCliAsync("config", "app-one", "", "FixtureApp.exe", "name", "extra")) is { Code: 2, Error.Length: > 0 });
         Check("autopilot requires explicit instances", (await RunCliAsync("autopilot")) is { Code: 2, Error.Length: > 0 });
         await VerifyPipeResponsivenessAsync();
         try
@@ -352,10 +350,10 @@ public static partial class Acceptance
                     catch (OperationCanceledException) { cancelled = true; }
                     Check("cancel during copy cleans target", cancelled && !Directory.Exists(Path.Combine(AppPaths.WorkspaceRoot, "cancelled")) && Directory.GetDirectories(AppPaths.WorkspaceRoot, ".copy-*").Length == 0);
                 }
-                InstanceStore.Save([new InstanceConfig { FolderName = "copy", Remark = "existing", ExeFileName = "bin\\fixture.exe", Width = 777, Height = 333, ExtraArgs = "--keep", EmbedWindow = false }]);
+                InstanceStore.Save([new InstanceConfig { FolderName = "copy", Remark = "existing", ExeFileName = "bin\\fixture.exe", ExtraArgs = "--keep", EmbedWindow = false }]);
                 var created = await window.ExecuteCommandAsync(["create", "验收备注", "fixture", "bin\\fixture.exe"]);
                 var previous = InstanceStore.Load().Single(c => c.FolderName == "copy");
-                Check("create preserves existing instance configuration", previous.Remark == "existing" && previous.Width == 777 && previous.Height == 333 && previous.ExtraArgs == "--keep" && !previous.EmbedWindow);
+                Check("create preserves existing instance configuration", previous.Remark == "existing" && previous.ExtraArgs == "--keep" && !previous.EmbedWindow);
                 Check("nested exe create command succeeds", created.Code == 0);
                 Check("exe path escape rejected", (await window.ExecuteCommandAsync(["create", "escape", "escape-exe", "..\\fixture.exe"])).Code != 0 && !Directory.Exists(Path.Combine(AppPaths.WorkspaceRoot, "escape-exe")));
                 if (created.Code == 0)
@@ -366,17 +364,17 @@ public static partial class Acceptance
                         Check(operation[0] + " rejects a stopped instance", stopped.Code != 0 && !string.IsNullOrWhiteSpace(stopped.Error));
                     }
                     Check("visible status explains command errors", window.FindName("StatusText") is System.Windows.Controls.TextBlock statusText && statusText.IsVisible && !string.IsNullOrWhiteSpace(statusText.Text));
-                    Check("malformed dimensions are argument errors", (await window.ExecuteCommandAsync(["config", "fixture", "bad", "576", "", "true"])).Code == 2);
+                    Check("invalid exe path is an argument error", (await window.ExecuteCommandAsync(["config", "fixture", "", "..\\escape.exe"])).Code == 2);
                     window.Instances.Single(i => i.Config.FolderName == "fixture").IsSelected = true;
                     await window.ExecuteCommandAsync(["refresh"]);
                     Check("refresh preserves checked card selection", window.Instances.Single(i => i.Config.FolderName == "fixture").IsSelected);
                     const string extra = "--local --label=\"中文 value\"";
-                    Check("config command", (await window.ExecuteCommandAsync(["config", "fixture", "1024", "576", extra, "false"])).Code == 0);
+                    Check("config command", (await window.ExecuteCommandAsync(["config", "fixture", extra])).Code == 0);
                     await window.ExecuteCommandAsync(["refresh"]);
                     var saved = InstanceStore.Scan(InstanceStore.Load()).Single(c => c.FolderName == "fixture");
-                    Check("config survives reload scan", saved.Remark == "验收备注" && saved.ExeFileName == "bin\\fixture.exe" && saved.Width == 1024 && saved.Height == 576 && saved.ExtraArgs == extra && !saved.EmbedWindow);
+                    Check("config survives reload scan", saved.Remark == "验收备注" && saved.ExeFileName == "bin\\fixture.exe" && saved.ExtraArgs == extra);
                     Check("launch arguments preserved", saved.BuildArguments() == extra);
-                    Check("invalid dimensions rejected", (await window.ExecuteCommandAsync(["config", "fixture", "0", "576", "", "true"])).Code != 0 && saved.Width == 1024);
+                    Check("invalid exe update rejected", (await window.ExecuteCommandAsync(["config", "fixture", "", "not-an-exe.txt"])).Code != 0 && saved.ExeFileName == "bin\\fixture.exe");
                     Check("duplicate create rejected", (await window.ExecuteCommandAsync(["create", "overwrite", "fixture", "bin\\fixture.exe"])).Code != 0 && InstanceStore.Load().Single(c => c.FolderName == "fixture").Remark == "验收备注");
                 }
                 Check("template excluded from scan", InstanceStore.Scan(InstanceStore.Load()).All(c => c.FolderName != "template"));

@@ -18,46 +18,34 @@ public sealed class DialogTests
         var original = new InstanceConfig
         {
             FolderName = "one", Remark = "Original", ExeFileName = "original.exe",
-            Width = 800, Height = 360, ExtraArgs = "--old", EmbedWindow = true,
-            IncludeSizeArguments = true, LastExitAbnormal = true,
+            ExtraArgs = "--old", EmbedWindow = true, LastExitAbnormal = true,
         };
 
         var candidate = InstanceConfigWindow.BuildCandidate(original, " New name ", " bin/app.exe ",
-            "960", "540", "--profile \"new profile\"", false, false);
+            "--profile \"new profile\"");
 
         Assert.NotSame(original, candidate);
         Assert.Equal("one", candidate.FolderName);
         Assert.Equal("New name", candidate.Remark);
         Assert.Equal("bin/app.exe", candidate.ExeFileName);
-        Assert.Equal(960, candidate.Width);
-        Assert.Equal(540, candidate.Height);
         Assert.Equal("--profile \"new profile\"", candidate.BuildArguments());
-        Assert.False(candidate.EmbedWindow);
+        Assert.True(candidate.EmbedWindow);
         Assert.True(candidate.LastExitAbnormal);
         Assert.Equal("Original", original.Remark);
         Assert.Equal("original.exe", original.ExeFileName);
-        Assert.Equal(800, original.Width);
-        Assert.Equal(360, original.Height);
         Assert.Equal("--old", original.ExtraArgs);
         Assert.True(original.EmbedWindow);
-        Assert.True(original.IncludeSizeArguments);
     }
 
     [Theory]
-    [InlineData("", "app.exe", "800", "360")]
-    [InlineData("Name", "../outside.exe", "800", "360")]
-    [InlineData("Name", "app.exe", "large", "360")]
-    [InlineData("Name", "app.exe", "0", "360")]
-    [InlineData("Name", "app.exe", "800", "16385")]
-    public void InvalidConfigurationEditsLeaveOriginalUnchanged(string name, string exe, string width, string height)
+    [InlineData("", "app.exe")]
+    [InlineData("Name", "../outside.exe")]
+    public void InvalidConfigurationEditsLeaveOriginalUnchanged(string name, string exe)
     {
         var original = new InstanceConfig { FolderName = "one", Remark = "Original", ExeFileName = "original.exe" };
-        Assert.Throws<ArgumentException>(() => InstanceConfigWindow.BuildCandidate(original,
-            name, exe, width, height, "--new", false, true));
+        Assert.Throws<ArgumentException>(() => InstanceConfigWindow.BuildCandidate(original, name, exe, "--new"));
         Assert.Equal("Original", original.Remark);
         Assert.Equal("original.exe", original.ExeFileName);
-        Assert.Equal(800, original.Width);
-        Assert.Equal(360, original.Height);
         Assert.Empty(original.ExtraArgs);
     }
 

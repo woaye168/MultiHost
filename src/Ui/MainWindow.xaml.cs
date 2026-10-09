@@ -42,6 +42,13 @@ public partial class MainWindow : Window
     public MainWindow(string? startupWarning = null)
     {
         InitializeComponent();
+        // 恢复上次的主窗口尺寸（持久化在工作区设置里）。
+        var savedSize = new ShellSettingsStore(AppPaths.WorkspaceRoot).Load();
+        if (savedSize.WindowWidth > 0 && savedSize.WindowHeight > 0)
+        {
+            Width = savedSize.WindowWidth;
+            Height = savedSize.WindowHeight;
+        }
         DpiChanged += (_, _) => UpdateCardLayout();
         CardsScroll.ScrollChanged += (_, e) => { if (e.ViewportWidthChange != 0) UpdateCardLayout(); };
         _embedController = new(_processManager, FindConfig);
@@ -141,8 +148,7 @@ public partial class MainWindow : Window
         cfg = new InstanceConfig
         {
             FolderName = cfg.FolderName, Remark = cfg.Remark, ExeFileName = cfg.ExeFileName,
-            ExtraArgs = cfg.ExtraArgs, Width = cfg.Width, Height = cfg.Height,
-            EmbedWindow = cfg.EmbedWindow, IncludeSizeArguments = cfg.IncludeSizeArguments,
+            ExtraArgs = cfg.ExtraArgs, EmbedWindow = cfg.EmbedWindow,
         };
         _errors.Remove(cfg.FolderName);
         RefreshStatuses();
@@ -249,8 +255,7 @@ public partial class MainWindow : Window
             if (!string.Equals(workspace, AppPaths.WorkspaceRoot, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("工作区已切换，请关闭配置窗口后重新打开");
             var current = FindConfig(key) ?? throw new InvalidOperationException("实例已不存在，请关闭配置窗口后刷新");
-            SaveConfig(current, candidate.Width, candidate.Height, candidate.ExtraArgs, candidate.EmbedWindow,
-                candidate.IncludeSizeArguments, candidate.ExeFileName, candidate.Remark);
+            SaveConfig(current, candidate.ExtraArgs, candidate.ExeFileName, candidate.Remark);
             ShowStatus("配置已保存，将在下次启动时生效。");
         }) { Owner = this };
         dialog.ShowDialog();
@@ -260,9 +265,7 @@ public partial class MainWindow : Window
     {
         if (_createCancellation != null) throw new InvalidOperationException("正在复制模板，请等待完成或取消");
         if (string.IsNullOrWhiteSpace(remark)) throw new ArgumentException("显示名称不能为空");
-        // 实例宽高默认跟随当前内嵌分辨率，确保支持尺寸参数的应用启动尺寸与内嵌显示一致（点击命中对齐）。
-        var cfg = new InstanceConfig { Remark = remark.Trim(), FolderName = folder.Trim(), ExeFileName = exe,
-            Width = ThemeManager.EmbedWidth, Height = ThemeManager.EmbedHeight };
+        var cfg = new InstanceConfig { Remark = remark.Trim(), FolderName = folder.Trim(), ExeFileName = exe };
         cfg.Validate();
         if (!InstanceStore.ScanTemplateExes().Contains(exe, StringComparer.OrdinalIgnoreCase)) throw new ArgumentException("请选择模板中的程序");
         var configs = InstanceStore.Scan(InstanceStore.Load());
@@ -307,21 +310,18 @@ public partial class MainWindow : Window
         }
     });
 
-    private void SaveConfig(InstanceConfig cfg, int width, int height, string extra, bool embed,
-        bool? includeSize = null, string? exe = null, string? remark = null)
+    private void SaveConfig(InstanceConfig cfg, string extra, string? exe = null, string? remark = null)
     {
         var candidate = new InstanceConfig
         {
             FolderName = cfg.FolderName, Remark = remark?.Trim() ?? cfg.Remark,
-            ExeFileName = exe?.Trim() ?? cfg.ExeFileName, Width = width, Height = height,
-            ExtraArgs = extra, EmbedWindow = embed, IncludeSizeArguments = includeSize ?? cfg.IncludeSizeArguments,
-            LastExitAbnormal = cfg.LastExitAbnormal,
+            ExeFileName = exe?.Trim() ?? cfg.ExeFileName, ExtraArgs = extra,
+            EmbedWindow = cfg.EmbedWindow, LastExitAbnormal = cfg.LastExitAbnormal,
         };
         if (string.IsNullOrWhiteSpace(candidate.Remark)) throw new ArgumentException("显示名称不能为空");
         candidate.Validate();
         InstanceStore.Save(_instances.Select(i => ReferenceEquals(i.Config, cfg) ? candidate : i.Config));
-        cfg.Width = candidate.Width; cfg.Height = candidate.Height; cfg.ExtraArgs = candidate.ExtraArgs;
-        cfg.EmbedWindow = candidate.EmbedWindow; cfg.IncludeSizeArguments = candidate.IncludeSizeArguments;
+        cfg.ExtraArgs = candidate.ExtraArgs;
         cfg.ExeFileName = candidate.ExeFileName; cfg.Remark = candidate.Remark;
         foreach (var item in _instances) item.RefreshConfig();
         RefreshStatuses();
@@ -383,6 +383,9 @@ public partial class MainWindow : Window
             { e.Cancel = true; return; }
         }
         _closing = true;
+        // 持久化主窗口尺寸（仅正常窗口状态，避免记下最大化/最小化的尺寸）。
+        if (WindowState == WindowState.Normal && ActualWidth > 0 && ActualHeight > 0)
+            try { new ShellSettingsStore(AppPaths.WorkspaceRoot).SaveWindowSize(ActualWidth, ActualHeight); } catch { }
         _queuedStarts.Clear();
         _batchDelay?.Cancel();
         _createCancellation?.Cancel();

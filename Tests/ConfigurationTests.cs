@@ -37,13 +37,6 @@ public sealed class ConfigurationTests : IDisposable
         ProcessManager.ValidateFolder("星火对战平台PC_线上_251125");
     }
 
-    [Fact]
-    public void SizeArgumentsRequireExplicitOptIn()
-    {
-        var config = new InstanceConfig { IncludeSizeArguments = true, Width = 640, Height = 480, ExtraArgs = "--safe" };
-        Assert.Equal("-width=640 -height=480 --safe", config.BuildArguments());
-    }
-
     [Theory]
     [InlineData("../escape.exe")]
     [InlineData("bin/../../escape.exe")]

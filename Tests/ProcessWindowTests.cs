@@ -13,7 +13,7 @@ public class ProcessWindowTests
     public async Task CaptureAcceptsOwnedWindowWithArbitraryClientSize()
     {
         using var window = await TestWindow.ShowAsync("Generic application", new Size(413, 271));
-        var result = await WindowEmbedder.CaptureMainWindowAsync(new() { Width = 800, Height = 360 },
+        var result = await WindowEmbedder.CaptureMainWindowAsync(new(),
             null, CancellationToken.None, 1800, owns: pid => pid == Environment.ProcessId);
 
         Assert.Equal(window.Handle, result.Hwnd);
@@ -24,7 +24,7 @@ public class ProcessWindowTests
     public async Task CaptureAcceptsTitlelessOwnedWindow()
     {
         using var window = await TestWindow.ShowAsync("", new Size(413, 271));
-        var result = await WindowEmbedder.CaptureMainWindowAsync(new() { Width = 413, Height = 271 },
+        var result = await WindowEmbedder.CaptureMainWindowAsync(new(),
             null, CancellationToken.None, 1800, owns: pid => pid == Environment.ProcessId);
 
         Assert.Equal(window.Handle, result.Hwnd);
@@ -34,7 +34,7 @@ public class ProcessWindowTests
     public async Task CaptureUsesExplicitProcessIdentityWithoutDirectoryHeuristic()
     {
         using var window = await TestWindow.ShowAsync("Known process", new Size(413, 271));
-        var result = await WindowEmbedder.CaptureMainWindowAsync(new() { FolderName = "missing", Width = 413, Height = 271 },
+        var result = await WindowEmbedder.CaptureMainWindowAsync(new() { FolderName = "missing" },
             null, CancellationToken.None, 1800, knownPid: Environment.ProcessId);
 
         Assert.Equal(window.Handle, result.Hwnd);
@@ -45,7 +45,7 @@ public class ProcessWindowTests
     {
         using var window = await TestWindow.ShowAsync("External application", new Size(413, 271));
         using var self = Process.GetCurrentProcess();
-        var config = new InstanceConfig { FolderName = Path.GetDirectoryName(self.MainModule!.FileName)!, Width = 413, Height = 271 };
+        var config = new InstanceConfig { FolderName = Path.GetDirectoryName(self.MainModule!.FileName)! };
 
         var result = await WindowEmbedder.CaptureMainWindowAsync(config, null, CancellationToken.None, 900);
 
@@ -56,7 +56,7 @@ public class ProcessWindowTests
     public async Task CaptureDoesNotFallBackToPidWhenOwnershipIsRejected()
     {
         using var window = await TestWindow.ShowAsync("Unowned application", new Size(413, 271));
-        var result = await WindowEmbedder.CaptureMainWindowAsync(new() { Width = 413, Height = 271 },
+        var result = await WindowEmbedder.CaptureMainWindowAsync(new(),
             null, CancellationToken.None, 900, knownPid: Environment.ProcessId, owns: _ => false);
 
         Assert.False(result.Found);

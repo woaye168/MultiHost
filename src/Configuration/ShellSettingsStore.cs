@@ -3,7 +3,7 @@ using System.IO;
 namespace MultiHost;
 
 public sealed record ShellSettings(AppThemeMode Theme = AppThemeMode.System, int BatchIntervalSeconds = 0,
-    int EmbedWidth = 800, int EmbedHeight = 360);
+    int EmbedWidth = 800, int EmbedHeight = 360, double WindowWidth = 0, double WindowHeight = 0);
 
 /// <summary>主题设置与模板设置共享文件，保存时保留其他配置项。</summary>
 public sealed class ShellSettingsStore(string workspaceRoot)
@@ -22,7 +22,9 @@ public sealed class ShellSettingsStore(string workspaceRoot)
             var width = json["EmbedWidth"]?.GetValue<int>() ?? 800;
             var height = json["EmbedHeight"]?.GetValue<int>() ?? 360;
             ValidateEmbedResolution(width, height);
-            return new(theme, Math.Clamp(interval, 0, 30), width, height);
+            var winWidth = json["WindowWidth"]?.GetValue<double>() ?? 0;
+            var winHeight = json["WindowHeight"]?.GetValue<double>() ?? 0;
+            return new(theme, Math.Clamp(interval, 0, 30), width, height, winWidth, winHeight);
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException)
         {
@@ -48,6 +50,17 @@ public sealed class ShellSettingsStore(string workspaceRoot)
         var json = AtomicJsonFile.ReadObject(SettingsFile);
         json["EmbedWidth"] = width;
         json["EmbedHeight"] = height;
+        AtomicJsonFile.Write(SettingsFile, json.ToJsonString(AtomicJsonFile.Options));
+    }
+
+    /// <summary>保存主窗口尺寸（0 表示未设置，启动时用默认）。</summary>
+    public void SaveWindowSize(double width, double height)
+    {
+        if (width <= 0 || height <= 0) return;
+        _ = Load();
+        var json = AtomicJsonFile.ReadObject(SettingsFile);
+        json["WindowWidth"] = width;
+        json["WindowHeight"] = height;
         AtomicJsonFile.Write(SettingsFile, json.ToJsonString(AtomicJsonFile.Options));
     }
 

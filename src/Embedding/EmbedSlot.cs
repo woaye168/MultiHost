@@ -241,9 +241,16 @@ public class EmbedSlot : Grid
     }
     public void ActivateChild()
     {
+        if (!Win32Api.IsWindow(_child)) return;
         // 应用可能在内嵌后新建其他线程的窗口（如内嵌浏览器），激活时补充合并。
-        if (Win32Api.IsWindow(_child)) MergeInputThreads(InstanceKey ?? "", _child);
-        if (!WindowNative.Focus(_child, _inputAttached)) LogService.Log($"{InstanceKey} 焦点验证失败");
+        MergeInputThreads(InstanceKey ?? "", _child);
+        // 键盘焦点：把主窗口提到前台，再激活并聚焦到内嵌窗口，并显式通知它获得焦点。
+        // 跨进程需保持输入队列合并（leaveAttached=true），否则 SDL 等引擎收不到键盘。
+        var root = Win32Api.GetAncestor(_child, Win32Api.GA_ROOT);
+        Win32Api.SetForegroundWindow(root);
+        Win32Api.SetActiveWindow(_child);
+        if (!WindowNative.Focus(_child, leaveAttached: true)) LogService.Log($"{InstanceKey} 焦点验证失败");
+        Win32Api.SendMessage(_child, 0x0007 /*WM_SETFOCUS*/, IntPtr.Zero, IntPtr.Zero);
     }
     private void MergeInputThreads(string key, IntPtr hwnd)
     {
