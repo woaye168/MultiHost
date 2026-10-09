@@ -21,7 +21,7 @@
                         <Button x:Name="StartBtn" Content="启动" Padding="10,3" Margin="0,0,5,0" Click="StartBtn_Click"/>
                         <Button x:Name="StopBtn" Content="停止" Padding="10,3" Margin="0,0,5,0" Click="StopBtn_Click"/>
                         <Button Content="配置" Padding="10,3" Margin="0,0,12,0" Click="ConfigureBtn_Click"/>
-                        <Button x:Name="ActivateBtn" Content="激活" ToolTip="将键盘焦点切到此应用；也可以直接点击下方应用操作" Padding="10,3" Margin="0,0,5,0" Click="ActivateBtn_Click"/>
+                        <Button x:Name="ActivateBtn" Content="键盘" ToolTip="把键盘输入切到此应用（鼠标点击后焦点可能丢失，点这里恢复键盘控制）" Padding="10,3" Margin="0,0,5,0" Click="ActivateBtn_Click"/>
                         <Button x:Name="PopOutBtn" Content="弹出" Padding="10,3" Margin="0,0,5,0" Click="PopOutBtn_Click"/>
                         <Button x:Name="ReEmbedBtn" Content="收回" Padding="10,3" Click="ReEmbedBtn_Click"/>
                     </WrapPanel>

@@ -64,6 +64,27 @@ public sealed class ShellSettingsStore(string workspaceRoot)
         AtomicJsonFile.Write(SettingsFile, json.ToJsonString(AtomicJsonFile.Options));
     }
 
+    /// <summary>读取勾选的实例文件夹列表（不存在返回空）。</summary>
+    public string[] LoadSelectedFolders()
+    {
+        try
+        {
+            return AtomicJsonFile.ReadObject(SettingsFile)["SelectedFolders"] is { } node
+                ? node.AsArray().Select(x => x?.GetValue<string>() ?? "").Where(s => s.Length > 0).ToArray()
+                : [];
+        }
+        catch { return []; }
+    }
+
+    /// <summary>保存勾选的实例文件夹列表。</summary>
+    public void SaveSelectedFolders(IEnumerable<string> folders)
+    {
+        _ = Load();
+        var json = AtomicJsonFile.ReadObject(SettingsFile);
+        json["SelectedFolders"] = new System.Text.Json.Nodes.JsonArray(folders.Select(f => System.Text.Json.Nodes.JsonValue.Create(f)).ToArray<System.Text.Json.Nodes.JsonNode?>());
+        AtomicJsonFile.Write(SettingsFile, json.ToJsonString(AtomicJsonFile.Options));
+    }
+
     public static void ValidateEmbedResolution(int width, int height)
     {
         if (width is < 1 or > 16384)

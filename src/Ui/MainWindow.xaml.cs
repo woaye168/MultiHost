@@ -37,6 +37,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _batchDelay;
     private bool _closing;
     private bool _confirmedShutdown;
+    private bool _loadedSelection;
     private int _batchOperations;
 
     public MainWindow(string? startupWarning = null)
@@ -71,10 +72,21 @@ public partial class MainWindow : Window
 
     private InstanceConfig? FindConfig(string key) => _instances.FirstOrDefault(i => i.Config.FolderName.Equals(key, StringComparison.OrdinalIgnoreCase))?.Config;
 
+    // 勾选状态持久化到工作区设置，下次启动恢复。
+    private void PersistSelection()
+    {
+        if (!_loadedSelection) return;
+        try { new ShellSettingsStore(AppPaths.WorkspaceRoot).SaveSelectedFolders(_instances.Where(i => i.IsSelected).Select(i => i.Config.FolderName)); } catch { }
+    }
+
     private void ReloadInstances()
     {
         var configs = InstanceStore.Scan(InstanceStore.Load());
-        var checkedKeys = _instances.Where(i => i.IsSelected).Select(i => i.Config.FolderName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // 首次加载用持久化的勾选列表；之后刷新保留当前勾选。
+        var checkedKeys = _loadedSelection
+            ? _instances.Where(i => i.IsSelected).Select(i => i.Config.FolderName).ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : new ShellSettingsStore(AppPaths.WorkspaceRoot).LoadSelectedFolders().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        _loadedSelection = true;
         _embedController.Synchronize(configs);
         var keys = configs.Select(c => c.FolderName).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var key in _cards.Keys.Where(key => !keys.Contains(key)).ToArray())
@@ -86,6 +98,7 @@ public partial class MainWindow : Window
         foreach (var cfg in configs)
         {
             var item = new InstanceItem { Config = cfg, IsSelected = checkedKeys.Contains(cfg.FolderName) };
+            item.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(InstanceItem.IsSelected)) PersistSelection(); };
             _instances.Add(item);
             if (_cards.TryGetValue(cfg.FolderName, out var card)) card.DataContext = item;
             else
