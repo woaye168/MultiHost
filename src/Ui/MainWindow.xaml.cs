@@ -38,6 +38,7 @@ public partial class MainWindow : Window
     private bool _closing;
     private bool _confirmedShutdown;
     private bool _loadedSelection;
+    private bool _syncEnabled;
     private int _batchOperations;
 
     public MainWindow(string? startupWarning = null)
@@ -256,6 +257,23 @@ public partial class MainWindow : Window
         Log(message);
     }
 
+    private void SyncBtn_Click(object sender, RoutedEventArgs e) => RunUi(() => SetSync(!_syncEnabled));
+
+    private void SetSync(bool enabled)
+    {
+        // 全局低级钩子拦截输入：开启后任一内嵌窗口内的鼠标/键盘被吞掉并广播到所有内嵌窗口。
+        InputSync.SetEnabled(enabled, GetAttachedHwnds);
+        _syncEnabled = enabled;
+        SyncBtn.Content = enabled ? "关闭同步" : "开启同步";
+        var attached = _cards.Values.Count(c => c.Slot.IsAttached);
+        LogService.Log($"[sync] 同步开关={(enabled ? "开" : "关")}，当前内嵌窗口数={attached}");
+        ShowStatus(enabled ? "已开启输入同步：任一内嵌窗口的操作会转发到所有运行中的窗口" : "已关闭输入同步");
+    }
+
+    /// <summary>当前已内嵌的子窗口句柄列表，供钩子回调实时取目标。</summary>
+    private IReadOnlyList<IntPtr> GetAttachedHwnds() =>
+        _cards.Values.Select(c => c.Slot).Where(s => s.IsAttached).Select(s => s.LastHwnd).ToArray();
+
     private async void BatchStartBtn_Click(object sender, RoutedEventArgs e) => await RunTargetsAsync(_instances.Where(i => i.IsSelected), true);
     private async void BatchStopBtn_Click(object sender, RoutedEventArgs e) => await RunTargetsAsync(_instances.Where(i => i.IsSelected), false);
 
@@ -404,6 +422,7 @@ public partial class MainWindow : Window
         _createCancellation?.Cancel();
         _pipe?.Dispose();
         _statusTimer.Stop();
+        InputSync.Shutdown();
         try { _embedController.ReleaseAll(); }
         finally { _processManager.Dispose(); }
         _logWindow?.Close();

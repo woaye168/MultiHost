@@ -11,6 +11,7 @@
         </Grid.RowDefinitions>
         <DockPanel Margin="16,12,16,8">
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                <Button x:Name="SyncBtn" Content="开启同步" Padding="12,5" Margin="0,0,16,0" Click="SyncBtn_Click"/>
                 <Button x:Name="BatchStartBtn" Content="启动勾选" Padding="12,5" Margin="0,0,6,0" Click="BatchStartBtn_Click"/>
                 <Button x:Name="BatchStopBtn" Content="停止勾选" Padding="12,5" Margin="0,0,16,0" Click="BatchStopBtn_Click"/>
                 <Button x:Name="CreateBtn" Content="创建" Padding="12,5" Margin="0,0,6,0" Click="CreateBtn_Click"/>

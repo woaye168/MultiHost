@@ -146,6 +146,13 @@ public partial class MainWindow
                     if (args.Length == 3 && programs.Count != 1) throw new ArgumentException("模板包含多个程序或没有程序，请明确指定相对 exe 路径");
                     await CreateInstanceAsync(args[1], args[2], args.Length > 3 ? args[3] : programs[0]);
                     return new(0);
+                case "sync":
+                    Count(1, 2, "sync [on|off]");
+                    if (args.Length == 2)
+                        SetSync(args[1] is "on" or "1" or "true" ? true
+                            : args[1] is "off" or "0" or "false" ? false
+                            : throw new ArgumentException("sync [on|off]"));
+                    return new(0, _syncEnabled);
                 case "logs": Count(1, 1, "logs"); return new(0, LogService.Entries);
                 case "refresh": Count(1, 1, "refresh"); ReloadInstances(); RefreshSettings(); return new(0);
                 case "shutdown":

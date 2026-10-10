@@ -12,4 +12,7 @@
     <AssemblyName>MultiHost</AssemblyName>
     <RootNamespace>MultiHost</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="MultiHost.Tests" />
+  </ItemGroup>
 </Project>

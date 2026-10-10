@@ -12,7 +12,7 @@ public static class CliRunner
         CommandReply reply;
         if (args.Length == 0 || args[0] is "help" or "--help")
             reply = new(0, new { Usage = "MultiHost.exe cli <command> [args]，操作正在运行的同一 GUI",
-                Commands = new[] { "list", "status", "workspace [absolute-path]", "template [absolute-path]", "start <folder...>", "stop <folder>", "stopall", "embed <folder>", "popout <folder>", "close-popout <folder>", "check-embed <folder>", "diag <folder>（导出内嵌窗口树与截图）", "probe <folder>（尺寸探测）", "fit <folder> <fill|original>", "theme [system|light|dark]", "resolution [width height]", "create <name> <folder> [relative-exe]", "config <folder> <arguments> [relative-exe] [name]", "logs", "refresh", "autopilot <folder1> <folder2>", "shutdown" },
+                Commands = new[] { "list", "status", "workspace [absolute-path]", "template [absolute-path]", "start <folder...>", "stop <folder>", "stopall", "embed <folder>", "popout <folder>", "close-popout <folder>", "check-embed <folder>", "diag <folder>（导出内嵌窗口树与截图）", "probe <folder>（尺寸探测）", "fit <folder> <fill|original>", "theme [system|light|dark]", "resolution [width height]", "create <name> <folder> [relative-exe]", "config <folder> <arguments> [relative-exe] [name]", "logs", "refresh", "sync [on|off]（输入同步：所有内嵌窗口接收相同鼠标/键盘操作）", "autopilot <folder1> <folder2>", "shutdown" },
                 Notes = "参数默认原样传递，不附加宽高标志。GUI 启动时自动提权；CLI 请在同一用户的管理员终端中运行。MULTIHOST_WORKSPACE 可指定独立工作区。" });
         else
         {

@@ -50,6 +50,21 @@ public static class Win32Api
     /// <summary>发送消息（同步等待处理）</summary>
     [DllImport("user32.dll", SetLastError = true)]
     public static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    public const uint WM_MOUSEMOVE = 0x0200;
+    public const uint WM_LBUTTONDOWN = 0x0201;
+    public const uint WM_LBUTTONUP = 0x0202;
+
+    public const int MK_LBUTTON = 0x0001;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct POINT { public int X; public int Y; }
+
+    /// <summary>客户区坐标转屏幕坐标</summary>
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool ClientToScreen(IntPtr hWnd, ref POINT lpPoint);
+
     public const uint WM_SIZE = 0x0005;
     public const uint SIZE_RESTORED = 0;
     public const uint WM_ENTERSIZEMOVE = 0x0231;
@@ -140,6 +155,106 @@ public static class Win32Api
     /// <summary>手动清零 LastError（SetWindowLong 成功也可能返回 0，需先清零再判错）</summary>
     [DllImport("kernel32.dll")]
     public static extern void SetLastError(uint dwErrCode);
+
+    #endregion
+
+    #region 全局低级输入钩子（WH_MOUSE_LL）
+
+    public const int WH_MOUSE_LL = 14;
+    public const int HC_ACTION = 0;
+
+    public delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+    /// <summary>安装全局钩子。低级钩子回调在安装线程的消息循环里执行，hMod 传本进程模块句柄、dwThreadId 传 0。</summary>
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr SetWindowsHookEx(int idHook, HookProc lpfn, IntPtr hMod, uint dwThreadId);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+    /// <summary>取模块句柄，lpModuleName 传 null 表示当前进程主模块</summary>
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr GetModuleHandle(string? lpModuleName);
+
+    /// <summary>取屏幕坐标点所在的窗口句柄（含子窗口）</summary>
+    [DllImport("user32.dll")]
+    public static extern IntPtr WindowFromPoint(POINT point);
+
+    /// <summary>屏幕坐标转指定窗口客户区坐标</summary>
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool ScreenToClient(IntPtr hWnd, ref POINT lpPoint);
+
+    /// <summary>低级鼠标钩子数据：pt 为屏幕坐标</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MSLLHOOKSTRUCT
+    {
+        public POINT pt;
+        public uint mouseData;
+        public uint flags;
+        public uint time;
+        public IntPtr dwExtraInfo;
+    }
+
+    #endregion
+
+    #region 物理输入注入（SendInput / SetCursorPos）
+
+    public const int INPUT_MOUSE = 0;
+
+    public const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
+    public const uint MOUSEEVENTF_LEFTUP = 0x0004;
+
+    /// <summary>SendInput 的鼠标输入数据：dwFlags 为 MOUSEEVENTF_*</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MOUSEINPUT
+    {
+        public int dx;
+        public int dy;
+        public uint mouseData;
+        public uint dwFlags;
+        public uint time;
+        public IntPtr dwExtraInfo;
+    }
+
+    /// <summary>SendInput 输入项（仅用鼠标成员，x64 下天然对齐为 40 字节）</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct INPUT
+    {
+        public uint type;
+        public MOUSEINPUT mi;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+    /// <summary>移动光标到屏幕绝对像素坐标</summary>
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetCursorPos(int x, int y);
+
+    /// <summary>取当前光标的屏幕绝对像素坐标</summary>
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetCursorPos(out POINT lpPoint);
+
+    /// <summary>
+    /// 物理注入一次鼠标动作（在**当前光标位置**生效，不产生位移）。
+    /// 配合 SetCursorPos 先把光标移到目标点。Raw Input 轮询的游戏只认这种硬件级注入。
+    /// </summary>
+    public static void SendMouseInput(uint flags, int mouseData = 0)
+    {
+        var input = new INPUT
+        {
+            type = INPUT_MOUSE,
+            mi = new MOUSEINPUT { dwFlags = flags, mouseData = (uint)mouseData },
+        };
+        SendInput(1, [input], Marshal.SizeOf<INPUT>());
+    }
 
     #endregion
 

@@ -249,6 +249,121 @@ public sealed class ProcessEmbedTests
     });
 
     [Fact]
+    public Task HookPassesInputThroughWhenSyncDisabled()
+    {
+        var sentinel = (IntPtr)12345;
+        var previous = InputSync.CallNextHook;
+        InputSync.CallNextHook = (_, _, _, _) => sentinel;
+        try
+        {
+            Assert.False(InputSync.Enabled);
+            // 同步关闭时钩子必须 CallNextHookEx 放行，不吞事件。
+            Assert.Equal(sentinel, InputSync.MouseHookProc(Win32Api.HC_ACTION, (IntPtr)Win32Api.WM_MOUSEMOVE, IntPtr.Zero));
+        }
+        finally { InputSync.CallNextHook = previous; }
+        return Task.CompletedTask;
+    }
+
+    [Fact]
+    public Task FindTargetWalksParentChainToEmbeddedWindow()
+    {
+        var targets = new List<IntPtr> { (IntPtr)0x100, (IntPtr)0x200 };
+        IntPtr FakeGetParent(IntPtr hwnd) => hwnd == (IntPtr)0x101 ? (IntPtr)0x100 : IntPtr.Zero;
+        // 命中内嵌窗口的子控件时沿父链找到内嵌窗口；未命中任何内嵌窗口返回 Zero（放行）。
+        Assert.Equal((IntPtr)0x100, InputSync.FindTarget(targets, (IntPtr)0x101, FakeGetParent));
+        Assert.Equal((IntPtr)0x200, InputSync.FindTarget(targets, (IntPtr)0x200, FakeGetParent));
+        Assert.Equal(IntPtr.Zero, InputSync.FindTarget(targets, (IntPtr)0x999, FakeGetParent));
+        return Task.CompletedTask;
+    }
+
+    [Fact]
+    public Task ScreenToClientMapsScreenPointToRelativeClientCoordinates()
+    {
+        using var form = new Form { ShowInTaskbar = false, StartPosition = FormStartPosition.Manual, Location = new Point(-30000, -30000), Width = 400, Height = 300 };
+        form.Show();
+        // 屏幕坐标 → 客户区相对坐标，同步广播依赖这个换算把命中点映射为各窗口内相同的相对位置。
+        var screen = form.PointToScreen(new Point(40, 50));
+        var pt = new Win32Api.POINT { X = screen.X, Y = screen.Y };
+        Assert.True(Win32Api.ScreenToClient(form.Handle, ref pt));
+        Assert.Equal((40, 50), (pt.X, pt.Y));
+        return Task.CompletedTask;
+    }
+
+    [Fact]
+    public Task InputSyncConvertsDipToClientPixelsAndPacksLParam()
+    {
+        var (x, y) = InputSync.ToClientPoint(new System.Windows.Point(10.4, 20.6), 1.5, 1.5);
+        Assert.Equal((16, 31), (x, y));
+        long packed = InputSync.MakeLParam(16, 31).ToInt64();
+        Assert.Equal(16, (short)(packed & 0xFFFF));
+        Assert.Equal(31, (short)(packed >> 16));
+        long negative = InputSync.MakeLParam(-5, -7).ToInt64();
+        Assert.Equal(-5, (short)(negative & 0xFFFF));
+        Assert.Equal(-7, (short)(negative >> 16));
+        return Task.CompletedTask;
+    }
+
+    [Fact]
+    public Task BroadcastInjectsMouseAtEachWindowScreenPoint()
+    {
+        // 鼠标广播改为物理注入：逐窗口 SetCursorPos 到「客户区相对坐标换算出的该窗口屏幕点」，
+        // 再 SendInput 注入动作，全部窗口点完后光标移回原位。
+        var cursorMoves = new List<(int X, int Y)>();
+        var injections = new List<(uint Flags, int Data)>();
+        var previous = (InputSync.SetCursor, InputSync.GetCursor, InputSync.ClientToScreenPoint, InputSync.SendMouse);
+        InputSync.SetCursor = (x, y) => cursorMoves.Add((x, y));
+        InputSync.GetCursor = () => (1000, 500); // 用户原点击位置
+        // 窗口 A 的客户区 (10,20) 在屏幕 (110,120)，窗口 B 在 (210,220)。
+        InputSync.ClientToScreenPoint = (hwnd, x, y) => hwnd == (IntPtr)0xA ? (110, 120) : (210, 220);
+        InputSync.SendMouse = (flags, data) => injections.Add((flags, data));
+        try
+        {
+            InputSync.Broadcast([(IntPtr)0xA, (IntPtr)0xB],
+                new SyncedInput(Win32Api.WM_LBUTTONDOWN, (IntPtr)Win32Api.MK_LBUTTON, InputSync.MakeLParam(10, 20)));
+
+            Assert.Equal(new[] { (110, 120), (210, 220), (1000, 500) }, cursorMoves); // 末位为还原到原点击位置
+            // 按下事件对每个窗口注入完整点击（down+up 一对）。
+            Assert.Equal(new[] {
+                (Win32Api.MOUSEEVENTF_LEFTDOWN, 0), (Win32Api.MOUSEEVENTF_LEFTUP, 0),
+                (Win32Api.MOUSEEVENTF_LEFTDOWN, 0), (Win32Api.MOUSEEVENTF_LEFTUP, 0) }, injections);
+        }
+        finally
+        {
+            (InputSync.SetCursor, InputSync.GetCursor, InputSync.ClientToScreenPoint, InputSync.SendMouse) = previous;
+        }
+        return Task.CompletedTask;
+    }
+
+    [Fact]
+    public Task HookPassesThroughWhileInjecting()
+    {
+        // SendInput 是硬件级输入会再次触发低级钩子：注入期间钩子必须直接放行（CallNextHookEx），
+        // 否则广播的点击被再次捕获再广播，无限递归。
+        var sentinel = (IntPtr)12345;
+        var previous = (InputSync.CallNextHook, InputSync.SetCursor, InputSync.GetCursor, InputSync.ClientToScreenPoint, InputSync.SendMouse);
+        InputSync.CallNextHook = (_, _, _, _) => sentinel;
+        InputSync.SetCursor = (_, _) => { };
+        InputSync.GetCursor = () => (0, 0);
+        InputSync.ClientToScreenPoint = (_, _, _) => (50, 60);
+        IntPtr nestedResult = IntPtr.Zero;
+        InputSync.SendMouse = (_, _) =>
+            // 模拟注入触发的递归钩子回调：此时 _injecting 为 true，必须放行。
+            nestedResult = InputSync.MouseHookProc(Win32Api.HC_ACTION, (IntPtr)Win32Api.WM_LBUTTONDOWN, IntPtr.Zero);
+        try
+        {
+            InputSync.Broadcast([(IntPtr)0xA],
+                new SyncedInput(Win32Api.WM_LBUTTONDOWN, (IntPtr)Win32Api.MK_LBUTTON, InputSync.MakeLParam(10, 20)));
+
+            Assert.Equal(sentinel, nestedResult);
+        }
+        finally
+        {
+            (InputSync.CallNextHook, InputSync.SetCursor, InputSync.GetCursor, InputSync.ClientToScreenPoint, InputSync.SendMouse) = previous;
+        }
+        return Task.CompletedTask;
+    }
+
+    [Fact]
     public Task ReleaseRestoresOriginalBoundsStyleAndOwner() => OnUiThreadAsync(() =>
     {
         using var owner = CreateForm();
