@@ -170,12 +170,13 @@ public sealed class ConfigurationTests : IDisposable
     }
 
     [Fact]
-    public void DiscoveryPrefersRootExecutableThenAlphabeticalOrder()
+    public void ScanReturnsOnlyConfiguredInstances()
     {
+        // 不再自动扫描目录补全实例：只显示 instances.json 里配置的，删除记录即隐藏。
         WriteFile("one/z.exe");
         WriteFile("one/bin/a-helper.exe");
         WriteFile("one/a.exe");
-        Assert.Equal("a.exe", Assert.Single(InstanceStore.Scan([], Workspace)).ExeFileName);
+        Assert.Empty(InstanceStore.Scan([], Workspace));
         Assert.Equal(new[] { "a.exe", "z.exe", Path.Combine("bin", "a-helper.exe") }, InstanceStore.ScanTemplateExes(Path.Combine(Workspace, "one")));
     }
 

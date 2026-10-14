@@ -136,45 +136,12 @@ public static class InstanceStore
     }
 
     /// <summary>
-    /// 扫描工作区，返回实例列表（已有配置按文件夹名合并，保留备注/参数；新发现的目录自动生成默认配置）。
+    /// 返回实例列表：严格以 instances.json 为准，只显示配置里的实例；不再自动扫描工作区目录补全。
+    /// 这样从 json 删除某条记录即可在软件里隐藏该实例（文件夹保留）。
     /// </summary>
     public static List<InstanceConfig> Scan(List<InstanceConfig> stored, string? workspaceRoot = null)
     {
-        var root = workspaceRoot ?? AppPaths.WorkspaceRoot;
-        var result = new List<InstanceConfig>(stored);
-        if (!Directory.Exists(root))
-            return result;
-        var template = WorkspaceConfiguration.ResolveTemplate(root);
-
-        // 壳应用自身所在目录（若发布到工作区内）不作为实例
-        string selfDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
-
-        foreach (var dir in Directory.GetDirectories(root).Order(StringComparer.OrdinalIgnoreCase))
-        {
-            var name = Path.GetFileName(dir);
-            // 排除模板、临时复制目录及链接目录。
-            if (AppPaths.ExcludedFolderNames.Contains(name) || name.StartsWith(".copy-", StringComparison.OrdinalIgnoreCase) ||
-                WorkspaceConfiguration.PathsOverlap(dir, template) ||
-                (File.GetAttributes(dir) & FileAttributes.ReparsePoint) != 0)
-                continue;
-            if (dir.Equals(selfDir, StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            if (result.Any(c => c.FolderName.Equals(name, StringComparison.OrdinalIgnoreCase)))
-                continue;
-
-            var exes = FindExecutables(dir);
-            if (exes.Length == 0)
-                continue;
-
-            result.Add(new InstanceConfig
-            {
-                FolderName = name,
-                Remark = name,
-                ExeFileName = Path.GetRelativePath(dir, exes[0]),
-            });
-        }
-        return result.OrderBy(c => c.FolderName, StringComparer.OrdinalIgnoreCase).ToList();
+        return stored.OrderBy(c => c.FolderName, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     private static string[] FindExecutables(string directory) => Directory.GetFiles(directory, "*.exe",

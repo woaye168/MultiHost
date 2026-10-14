@@ -168,7 +168,9 @@ public partial class MainWindow : Window
         RefreshStatuses();
         try
         {
+            Log($"开始启动 {cfg.FolderName}");
             var proc = await Task.Run(() => _processManager.Start(cfg));
+            Log($"{cfg.FolderName} 进程已创建 PID={proc.Id}");
             if (_closing || _stopRequested.Contains(cfg.FolderName)) { await _processManager.StopAsync(cfg.FolderName); return; }
             ShowStatus($"已启动 {cfg.Remark}（{cfg.FolderName}）");
             if (cfg.EmbedWindow) await _embedController.EmbedAsync(cfg, proc);

@@ -22,7 +22,7 @@ public static class LogService
     /// <summary>追加一条带时间戳的日志</summary>
     public static void Log(string message)
     {
-        string line = $"[{DateTime.Now:HH:mm:ss}] {message}";
+        string line = $"[{DateTime.Now:HH:mm:ss.fff}] {message}";
         lock (_lock)
         {
             _entries.Add(line);

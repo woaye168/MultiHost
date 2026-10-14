@@ -41,17 +41,19 @@ public sealed class ProcessManager : IDisposable
 
     public Process Start(InstanceConfig cfg)
     {
+        // 校验与外部进程枚举（FindInstanceProcesses 需遍历全系统进程，较慢）放在锁外，
+        // 批量并行启动时各实例的预检可同时进行，锁内只做会话登记与进程创建。
+        cfg.Validate();
+        if (!IsWithin(cfg.ExeFullPath, cfg.FolderFullPath) || !File.Exists(cfg.ExeFullPath))
+            throw new FileNotFoundException("实例可执行文件无效", cfg.ExeFullPath);
+        RejectLinkedInstancePath(cfg.ExeFullPath);
+        var existing = FindInstanceProcesses(cfg.FolderFullPath, "");
+        try { if (existing.Count > 0) throw new InvalidOperationException("实例已由外部运行，拒绝接管或重复启动"); }
+        finally { foreach (var p in existing) p.Dispose(); }
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (_sessions.ContainsKey(cfg.FolderName)) throw new InvalidOperationException("实例会话已存在");
-            cfg.Validate();
-            if (!IsWithin(cfg.ExeFullPath, cfg.FolderFullPath) || !File.Exists(cfg.ExeFullPath))
-                throw new FileNotFoundException("实例可执行文件无效", cfg.ExeFullPath);
-            RejectLinkedInstancePath(cfg.ExeFullPath);
-            var existing = FindInstanceProcesses(cfg.FolderFullPath, "");
-            try { if (existing.Count > 0) throw new InvalidOperationException("实例已由外部运行，拒绝接管或重复启动"); }
-            finally { foreach (var p in existing) p.Dispose(); }
             var job = Win32Api.CreateKillOnCloseJob();
             if (job == IntPtr.Zero) throw new InvalidOperationException("创建实例 Job 失败");
             try

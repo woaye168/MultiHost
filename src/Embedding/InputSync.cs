@@ -20,7 +20,7 @@ public static class InputSync
 {
     private static IntPtr _mouseHook;
     // 物理注入节奏：光标到位等待、按下/抬起间隔、窗口间间隔。游戏引擎对过快跳动的光标会做抖动合并，需放慢。
-    private const int ClickSettleMs = 100;
+    private const int ClickSettleMs = 200;
     private const int DownUpGapMs = 100;
     private const int BetweenWindowsMs = 100;
     // 委托必须保留引用，否则被 GC 回收后钩子回调会崩溃。

@@ -46,11 +46,13 @@ public sealed class EmbedController
         _pending[key] = token;
         var slot = EnsureSlot(key);
         slot.ShowWaiting(key);
+        var watch = Stopwatch.StartNew();
         try
         {
             var capture = await WindowEmbedder.CaptureMainWindowAsync(cfg, proc, token.Token, timeoutMs,
                 owns: pid => _manager.Owns(key, pid));
             token.Token.ThrowIfCancellationRequested();
+            if (capture.Found) LogService.Log($"已捕获 {key} 窗口 HWND={capture.Hwnd}，等待稳定耗时 {watch.ElapsedMilliseconds}ms");
             if (!_slots.TryGetValue(key, out var current) || current != slot) return;
             if (!capture.Found) throw new TimeoutException("未找到可内嵌的实例窗口；程序可能没有图形界面，或尚未创建窗口。可关闭自动内嵌后启动，或稍后点击收回重试。");
             Win32Api.GetWindowThreadProcessId(capture.Hwnd, out var pid);
