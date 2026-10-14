@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # 完整历史，用于归纳版本间提交
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Publish
+        run: dotnet publish src/MultiHost.csproj -c Release -r win-x64 --self-contained false -o artifacts/publish
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          Compress-Archive -Path artifacts/publish/* -DestinationPath "artifacts/MultiHost-$tag-win-x64.zip"
+          Write-Output "已打包 artifacts/MultiHost-$tag-win-x64.zip"
+
+      - name: Generate release notes
+        id: notes
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $repo = "${{ github.repository }}"
+          $prev = git tag --sort=-v:refname | Where-Object { $_ -ne $tag } | Select-Object -First 1
+          $range = if ($prev) { "$prev..$tag" } else { "$tag" }
+          $commits = git log $range --pretty=format:"- %s (``%h``)" --no-merges
+          $lines = @()
+          $lines += "## 版本说明"
+          $lines += ""
+          if ($prev) { $lines += "本版本相对 ``$prev`` 的全部变更如下：" } else { $lines += "首个版本，包含全部提交：" }
+          $lines += ""
+          $lines += "### What's Changed"
+          $lines += ""
+          if ($commits) { $lines += $commits } else { $lines += "- 无代码变更" }
+          $lines += ""
+          if ($prev) { $lines += "**Full Changelog**: https://github.com/$repo/compare/$prev...$tag" }
+          $body = $lines -join "`n"
+          "body<<EOF" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          $body | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "EOF" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "MultiHost ${{ github.ref_name }}"
+          body: ${{ steps.notes.outputs.body }}
+          draft: false
+          prerelease: false
+          files: artifacts/MultiHost-${{ github.ref_name }}-win-x64.zip

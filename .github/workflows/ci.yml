@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build app
+        run: dotnet build src/MultiHost.csproj -c Release
+
+      - name: Test
+        run: dotnet test Tests/MultiHost.Tests.csproj -c Release --verbosity normal
